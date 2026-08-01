@@ -22,7 +22,7 @@ import sys
 import db
 import emailer
 import watchlist
-from config import STORE_BY_KEY
+from config import BASE_URL, STORE_BY_KEY
 
 logging.basicConfig(
     level=logging.INFO,
@@ -48,7 +48,7 @@ def run() -> int:
         body = (f"{hit['card_key']} ({hit['finish']}) is at "
                 f"S${hit['price']:.2f} at {store_name} — target was "
                 f"S${hit['target_price']:.2f}.\n\n"
-                f"http://127.0.0.1:5009/\n")
+                f"{BASE_URL}\n")
         log.info("TRIGGER %s", subject)
         if emailer.send(subject, body):
             watchlist.mark_alerted(hit["card_key"], hit["finish"],

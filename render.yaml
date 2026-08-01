@@ -1,0 +1,37 @@
+# render.yaml — Stage 0 of HOSTING.md: the egress gate test.
+#
+# Purpose of this deploy is ONE question: do the five SG Shopify stores and
+# Cards Central answer a scraper calling from a datacenter IP? Everything
+# here is sized for that test and nothing more.
+#
+# Free plan on purpose: no persistent disk, so state/riftvor.db is ephemeral
+# and dies with the instance. That is fine — Stage 0 reads sync_meta once,
+# right after a forced sync. Stage A swaps plan: starter and adds a 1 GB disk
+# mounted at state/.
+services:
+  - type: web
+    name: riftvor
+    runtime: python
+    region: singapore        # lowest latency to the SG stores; does NOT dodge
+    plan: free               # bot detection — Cloudflare classifies by ASN.
+    buildCommand: pip install -r requirements.txt
+    # --workers 1 is load-bearing, not a cost saving: _SYNC_LOCK (sync.py),
+    # _BREAKERS (stores.py) and Carousell's _cache are module-level state.
+    # A second worker silently breaks sync-storm protection and per-store
+    # circuit breakers. Threads are fine — ensure_fresh() calls asyncio.run()
+    # inside a request thread, which works threaded and breaks under ASGI.
+    # --timeout 120: a cold forced sync of five catalogs outruns the 30s default.
+    startCommand: gunicorn --workers 1 --threads 8 --timeout 120 --bind 0.0.0.0:$PORT app:app
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.4
+      - key: RIFTVOR_HOST
+        value: 0.0.0.0        # declares "publicly reachable" → app.py then
+                              # refuses to boot without an auth password.
+      - key: RIFTVOR_AUTH_USER
+        value: trevor
+      - key: RIFTVOR_AUTH_PASSWORD
+        generateValue: true   # read it from the Render dashboard after deploy
+      - key: RIFTVOR_BASE_URL
+        sync: false           # set to the service URL once Render assigns it

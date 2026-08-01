@@ -97,6 +97,24 @@ RIFTVOR_SMTP_APP_PASSWORD=<gmail app password>
 Nightly heartbeat: `./run_nightly.sh` via cron/launchd (see
 `install_nightly.command`).
 
+## Hosting
+
+`HOSTING.md` is the staged plan for taking this online (Render). The repo
+carries the Stage 0 prep: `render.yaml`, a gunicorn start command, and HTTP
+basic auth. Optional env vars, all read from the environment or `.env`:
+
+| Var | Default | Effect |
+|---|---|---|
+| `RIFTVOR_AUTH_USER` | `riftvor` | Basic-auth username |
+| `RIFTVOR_AUTH_PASSWORD` | *(unset)* | Set it to require auth on every route except `/api/health`. Unset = off (local single-user default) |
+| `RIFTVOR_HOST` | `127.0.0.1` | Anything non-loopback declares the app publicly reachable; the app then **refuses to start** without `RIFTVOR_AUTH_PASSWORD` |
+| `RIFTVOR_BASE_URL` | `http://127.0.0.1:5009/` | Link written into watchlist alert emails |
+
+`POST /api/nightly` runs the heartbeat (sync + watchlist + dormant poll) in
+the web process — Render Cron Jobs get their own filesystem and cannot reach
+the web service's disk, so a cron there must curl this rather than run
+`nightly.py`.
+
 ## Tests
 
 ```bash

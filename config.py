@@ -14,10 +14,52 @@ STATE_DIR.mkdir(exist_ok=True)
 DB_PATH = STATE_DIR / "riftvor.db"
 ART_DIR = STATE_DIR / "art"
 
+# ── Repo-local .env (gitignored) ────────────────────────────────────────────
+# Loaded before anything below reads os.environ so the file can configure the
+# whole app, not just email. Real environment variables always win, which is
+# what makes hosted deployments (Render env vars) authoritative.
+ENV_PATH = BASE_DIR / ".env"
+
+
+def load_env() -> None:
+    """Load repo-local .env into os.environ (existing env vars win)."""
+    if not ENV_PATH.exists():
+        return
+    for line in ENV_PATH.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            value = value[1:-1]
+        os.environ.setdefault(key.strip(), value)
+
+
+load_env()
+
 PORT = int(os.environ.get("RIFTVOR_PORT", 5009))
-# Localhost-only by default. Set RIFTVOR_HOST=0.0.0.0 to serve the LAN —
-# there is no authentication, so only do that on a network you trust.
+# Localhost-only by default. RIFTVOR_HOST is the declared exposure intent:
+# anything other than a loopback address means "reachable by other people",
+# and app.py refuses to start in that state without RIFTVOR_AUTH_PASSWORD.
+# (Under gunicorn the actual bind comes from the start command; this value
+# is still read, so the guard holds there too.)
 HOST = os.environ.get("RIFTVOR_HOST", "127.0.0.1")
+LOCAL_HOSTS = {"127.0.0.1", "localhost", "::1"}
+
+# Public origin, used in alert email bodies. Locally this is the dev server;
+# on Render, set RIFTVOR_BASE_URL to the service URL.
+BASE_URL = os.environ.get("RIFTVOR_BASE_URL", f"http://127.0.0.1:{PORT}/")
+
+# ── HTTP basic auth (HOSTING.md Stage 0 prep #3) ────────────────────────────
+# Unset password = disabled, which keeps local single-user use exactly as it
+# was. Set it and every route except /api/health requires credentials.
+AUTH_USER = os.environ.get("RIFTVOR_AUTH_USER", "riftvor")
+AUTH_PASSWORD = os.environ.get("RIFTVOR_AUTH_PASSWORD", "")
+
+
+def auth_enabled() -> bool:
+    return bool(AUTH_PASSWORD)
 
 # ── Politeness (§10 of the PRD) ─────────────────────────────────────────────
 USER_AGENT = "Riftvor/1.0 personal price tracker"
@@ -148,24 +190,9 @@ CAROUSELL_URL = "https://www.carousell.sg/hobbies-toys/toys-games/riftbound/q-12
 RIFTMANA_ART_URL = "https://riftmana.com/wp-content/uploads/Cards/{card_key}.webp"
 
 # ── Email (watchlist alerts) — creds live in repo-local .env (gitignored) ───
-ENV_PATH = BASE_DIR / ".env"
+# (ENV_PATH / load_env live at the top: they run before anything reads env.)
 SMTP_HOST = "smtp.gmail.com"
 SMTP_PORT = 587
 EMAIL_FROM_ENV = "RIFTVOR_EMAIL_FROM"
 SMTP_APP_PASSWORD_ENV = "RIFTVOR_SMTP_APP_PASSWORD"
 EMAIL_TO_ENV = "RIFTVOR_EMAIL_TO"  # optional; defaults to EMAIL_FROM
-
-
-def load_env() -> None:
-    """Load repo-local .env into os.environ (existing env vars win)."""
-    if not ENV_PATH.exists():
-        return
-    for line in ENV_PATH.read_text().splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, _, value = line.partition("=")
-        value = value.strip()
-        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
-            value = value[1:-1]
-        os.environ.setdefault(key.strip(), value)

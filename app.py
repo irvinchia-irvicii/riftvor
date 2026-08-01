@@ -6,10 +6,12 @@ table, watchlist, history charts, xlsx export, saved buy lists.
 """
 from __future__ import annotations
 
+import hmac
 import logging
 import time
 
 from flask import Flask, jsonify, render_template, request, send_file
+from flask_httpauth import HTTPBasicAuth
 
 import basket
 import card_art
@@ -33,7 +35,44 @@ log = logging.getLogger("riftvor")
 
 app = Flask(__name__)
 db.init_db()
-config.load_env()
+
+# ── Auth (HOSTING.md Stage 0 prep #3) ───────────────────────────────────────
+# Every route except /api/health sits behind basic auth once a password is
+# set. It is off by default so nothing changes for local single-user use —
+# but declaring the app reachable (RIFTVOR_HOST=0.0.0.0, as render.yaml does)
+# without setting a password is refused rather than quietly served open.
+# /api/health stays public because Render's health check probes it unauthed.
+auth = HTTPBasicAuth()
+PUBLIC_PATHS = {"/api/health"}
+
+if not config.auth_enabled() and config.HOST not in config.LOCAL_HOSTS:
+    raise RuntimeError(
+        f"RIFTVOR_HOST={config.HOST} exposes Riftvor beyond this machine but "
+        f"RIFTVOR_AUTH_PASSWORD is unset. Set it (see HOSTING.md) — an open "
+        f"instance lets anyone make this server hammer the SG stores.")
+
+if config.auth_enabled():
+    log.info("basic auth ON (user %r)", config.AUTH_USER)
+else:
+    log.info("basic auth OFF — localhost only")
+
+
+@auth.verify_password
+def _verify(username: str, password: str) -> str | None:
+    ok = (hmac.compare_digest(username or "", config.AUTH_USER)
+          & hmac.compare_digest(password or "", config.AUTH_PASSWORD))
+    return config.AUTH_USER if ok else None
+
+
+@app.before_request
+def _require_auth():
+    """Gate everything at the door rather than decorating 20 routes — a new
+    endpoint is then protected by default instead of by remembering to."""
+    if not config.auth_enabled() or request.path in PUBLIC_PATHS:
+        return None
+    # login_required returns the 401 challenge on failure, else the wrapped
+    # callable's return — None here, which lets the request through.
+    return auth.login_required(lambda: None)()
 
 
 @app.get("/")
@@ -53,6 +92,15 @@ def index():
 
 @app.get("/api/health")
 def api_health():
+    """Render's health check target — unauthenticated, so it reports
+    liveness only, no catalog or sync detail."""
+    try:
+        with db.connect() as conn:
+            conn.execute("SELECT 1").fetchone()
+    except Exception as exc:  # noqa: BLE001
+        log.exception("health check: database unreachable")
+        return jsonify({"ok": False, "service": "riftvor",
+                        "error": str(exc)}), 503
     return jsonify({"ok": True, "service": "riftvor"})
 
 
@@ -113,6 +161,29 @@ def api_state():
 def api_refresh():
     summary = sync.ensure_fresh(force=True)
     return jsonify({**_sync_state(), "summary": summary})
+
+
+@app.post("/api/nightly")
+def api_nightly():
+    """The nightly heartbeat, in-process (HOSTING.md Stage 0 prep #5).
+
+    Render Cron Jobs are separate services with separate filesystems, so
+    running nightly.py as a cron there would write history into a database
+    nobody reads (gotcha #2). A Cron Job that only curls this endpoint puts
+    the work back where the DB lives. Same body as nightly.py; behind the
+    same basic auth as everything else.
+    """
+    # Local imports: both modules call logging.basicConfig at import time,
+    # which would otherwise pre-empt this app's log format.
+    import check_watchlist
+    import dormant_poll
+
+    result = sync.ensure_fresh(force=True)
+    sent = check_watchlist.run()
+    notices = len(dormant_poll.poll()) if dormant_poll.due() else None
+    log.info("nightly: %d alert(s), dormant notices=%s", sent, notices)
+    return jsonify({"sync": result, "alerts_sent": sent,
+                    "dormant_notices": notices})
 
 
 @app.get("/api/autocomplete")
