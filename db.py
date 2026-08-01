@@ -110,12 +110,25 @@ def replace_store_listings(conn: sqlite3.Connection, store: str,
                    :finish, :condition, :in_stock, :language, :synced_at)""",
         [{**r, "store": store, "synced_at": now} for r in rows],
     )
+    # One history point per (card, finish): stores like GOAT list every
+    # condition (NM → Damaged) as variants — the chart series tracks the
+    # cheapest in-stock listing, Near Mint preferred, so a $21 Damaged copy
+    # never masquerades as the market price.
+    snapshot: dict[tuple, dict] = {}
+    for r in rows:
+        if not r["card_key"]:
+            continue
+        key = (r["card_key"], r["finish"])
+        cur = snapshot.get(key)
+        rank = (r["in_stock"], r["condition"] == "Near Mint", -r["price"])
+        if cur is None or rank > cur["_rank"]:
+            snapshot[key] = {**r, "_rank": rank}
     conn.executemany(
         """INSERT INTO price_history (store, card_key, finish, price,
                                       in_stock, seen_at)
            VALUES (?, ?, ?, ?, ?, ?)""",
         [(store, r["card_key"], r["finish"], r["price"], r["in_stock"], now)
-         for r in rows if r["card_key"]],
+         for r in snapshot.values()],
     )
 
 

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Riftvor — Riftbound SG price compare</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <h1>Riftvor</h1>
+    <span class="sub">Riftbound singles · SG stores · SGD</span>
+  </div>
+  <div id="sync-chips" class="sync-chips"></div>
+  <button id="refresh-btn" class="ghost" title="Force refresh (bypass TTL)">⟳ Refresh</button>
+</header>
+
+<div id="dormant-banner" class="banner hidden"></div>
+
+<main>
+  <aside class="panel">
+    <h2>Buy list</h2>
+    <p class="hint">One card per line — names or collector numbers
+      (<code>OGN-043</code>, <code>2x Yasuo</code>, <code>UNL-T01</code>)</p>
+    <div class="ta-wrap">
+      <textarea id="buylist" rows="14" spellcheck="false"
+        placeholder="OGN-043&#10;2x Yasuo - Unforgiven&#10;Dazzling Aurora"></textarea>
+      <div id="ac-box" class="ac hidden"></div>
+    </div>
+    <div class="btn-row">
+      <button id="search-btn" class="primary">Search</button>
+      <button id="export-btn" class="ghost" title="Download xlsx">⬇ xlsx</button>
+    </div>
+    <div class="saved">
+      <h3>Saved lists</h3>
+      <div class="btn-row">
+        <input id="save-name" placeholder="list name">
+        <button id="save-btn" class="ghost">Save</button>
+      </div>
+      <ul id="saved-lists"></ul>
+    </div>
+    <div class="watch">
+      <h3>Watchlist</h3>
+      <ul id="watchlist"></ul>
+    </div>
+  </aside>
+
+  <section class="results">
+    <div id="status-line" class="status"></div>
+    <div id="unmatched-box" class="unmatched hidden"></div>
+    <div class="table-wrap">
+      <table id="cmp-table" class="hidden">
+        <thead><tr id="cmp-head"></tr></thead>
+        <tbody id="cmp-body"></tbody>
+      </table>
+    </div>
+    <div id="carousell-panel" class="carousell hidden">
+      <h2>Carousell (P2P — fuzzy matches, verify before buying)</h2>
+      <div id="carousell-body"></div>
+    </div>
+  </section>
+</main>
+
+<div id="modal" class="modal hidden">
+  <div class="modal-card">
+    <div class="modal-head">
+      <img id="modal-art" alt="" loading="lazy">
+      <div>
+        <h2 id="modal-title"></h2>
+        <span id="modal-sub" class="sub"></span>
+      </div>
+      <button id="modal-close" class="ghost">✕</button>
+    </div>
+    <canvas id="history-chart" height="120"></canvas>
+  </div>
+</div>
+
+<script>
+  const STORES = {{ stores | tojson }};
+  const TTL_SECONDS = {{ ttl }};
+</script>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

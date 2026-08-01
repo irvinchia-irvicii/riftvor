@@ -92,7 +92,9 @@ def comparison(list_text: str) -> dict:
                         "best_price": min(prices) if prices else None,
                         "stores": stores,
                     })
-    rows.sort(key=lambda r: (r["raw"].lower(), r["finish"]))
+    # Keep buy-list order; nonfoil before foil within a card.
+    rows.sort(key=lambda r: (r["raw"].lower(), r["card_key"],
+                             r["finish"] != "nonfoil"))
     return {"rows": rows, "unmatched": unmatched,
             "store_order": STORE_ORDER}
 
