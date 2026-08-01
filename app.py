@@ -12,6 +12,7 @@ import time
 from flask import Flask, jsonify, render_template, request, send_file
 
 import card_art
+import cards_central
 import config
 import db
 import export
@@ -36,8 +37,12 @@ config.load_env()
 def index():
     return render_template(
         "index.html",
-        stores=[{"key": s["key"], "name": s["name"], "base": s["base"]}
-                for s in config.STORES],
+        stores=([{"key": s["key"], "name": s["name"], "base": s["base"]}
+                 for s in config.STORES]
+                + [{"key": config.CARDS_CENTRAL["key"],
+                    "name": config.CARDS_CENTRAL["name"],
+                    "base": config.CARDS_CENTRAL["base"],
+                    "live": True}]),
         ttl=config.TTL_SECONDS,
     )
 
@@ -63,6 +68,20 @@ def api_search():
     force = bool(payload.get("force"))
     summary = sync.ensure_fresh(force=force)
     result = matching.comparison(text)
+    # Cards Central is per-query by design: live per buy-list card, skips
+    # the TTL cache, attached at request time (never written to listings).
+    wanted = [{"card_key": r["card_key"], "name": r["name"]}
+              for r in result["rows"]]
+    cc = cards_central.lookup(wanted) if wanted else {}
+    for row in result["rows"]:
+        cell = cc.get(row["card_key"], {}).get(row["finish"])
+        if cell:
+            row["stores"][cards_central.STORE_KEY] = cell
+            if cell["in_stock"] and (row["best_price"] is None
+                                     or cell["price"] < row["best_price"]):
+                row["best_price"] = cell["price"]
+    result["store_order"] = (result["store_order"]
+                             + [cards_central.STORE_KEY])
     result["sync"] = {**_sync_state(), "summary": summary}
     return jsonify(result)
 

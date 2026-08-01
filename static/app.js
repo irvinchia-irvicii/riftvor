@@ -21,9 +21,16 @@ function renderSync(state) {
   const box = $("sync-chips");
   box.innerHTML = "";
   for (const s of STORES) {
-    const meta = (state.ages || {})[s.key];
     const chip = document.createElement("span");
     chip.className = "chip";
+    if (s.live) {
+      chip.classList.add("fresh");
+      chip.textContent = `${s.name} · live`;
+      chip.title = "Queried live per search — no cache";
+      box.appendChild(chip);
+      continue;
+    }
+    const meta = (state.ages || {})[s.key];
     if (!meta || meta.age_s == null) {
       chip.classList.add("stale");
       chip.textContent = `${s.name} · —`;
