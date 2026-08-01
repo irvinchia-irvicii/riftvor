@@ -33,6 +33,12 @@
       <button id="search-btn" class="primary">Search</button>
       <button id="export-btn" class="ghost" title="Download xlsx">⬇ xlsx</button>
     </div>
+
+    <div class="plan-box hidden" id="plan-box">
+      <h3>Purchase plan</h3>
+      <div id="planPanel"></div>
+      <div class="plan-caveat" id="planCaveat"></div>
+    </div>
     <div class="saved">
       <h3>Saved lists</h3>
       <div class="btn-row">
@@ -74,6 +80,19 @@
       <button id="modal-close" class="ghost">✕</button>
     </div>
     <canvas id="history-chart" height="120"></canvas>
+  </div>
+</div>
+
+<div id="plan-modal" class="modal hidden">
+  <div class="modal-card">
+    <div class="modal-head">
+      <div>
+        <h2 id="plan-modal-title"></h2>
+        <span id="plan-modal-sub" class="sub"></span>
+      </div>
+      <button id="plan-modal-close" class="ghost">✕</button>
+    </div>
+    <div id="plan-modal-body" class="plan-body"></div>
   </div>
 </div>
 

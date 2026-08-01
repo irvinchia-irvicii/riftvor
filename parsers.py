@@ -235,9 +235,19 @@ BUYLIST_KEY_RE = re.compile(
 
 
 def parse_buy_list_line(line: str) -> dict | None:
-    """One buy-list line → {'raw', 'qty', 'card_key' | 'name'} or None."""
+    """One buy-list line → {'raw', 'qty', 'card_key' | 'name'} or None.
+
+    Returns None for structural lines so a pasted deck list works as-is:
+    section headers ('Legend:', 'MainDeck:', 'Rune Pool:', 'Sideboard:')
+    and comments. No Riftbound card name ends in a colon, so trailing-colon
+    is a safe header test.
+    """
     raw = line.strip()
     if not raw:
+        return None
+    if raw.startswith(("//", "#")):
+        return None
+    if raw.endswith(":"):
         return None
     qty = 1
     m = re.match(r"^(\d+)\s*[xX]?\s+(.*)$", raw)

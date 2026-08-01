@@ -19,6 +19,30 @@ snapshots prices into SQLite, and answers the query from there. TTL cache
 A nightly heartbeat guarantees ≥1 history datapoint/day and runs the
 watchlist check.
 
+## Purchase plans
+
+The comparison table says what each card costs where; the plan panel says
+what to actually buy. Three plans, because the cheapest basket is rarely
+the practical one — cherry-picking the floor price usually means ordering
+from every store, and each extra store is another postage fee:
+
+- **Cheapest** — cheapest in-stock listing per line, wherever it lives.
+- **Fewest stores** — greedy set cover: the fewest stores that still cover
+  everything obtainable, with the convenience premium shown against the
+  cheapest plan.
+- **Best single store** — per-store coverage and cost, ranked by how much
+  of the list each store can fill alone.
+
+Plans work per buy-list *line*, not per card: `6 Calm Rune` legitimately
+matches several printings and for a buyer those are interchangeable. Lines
+matching more than one card are flagged rather than silently guessed.
+Stock *depth* is unknown (Shopify publishes an availability boolean, not a
+count), so multi-copy lines assume the store can supply the quantity — the
+UI and the xlsx both say so.
+
+Pasted deck lists work as-is: section headers (`Legend:`, `MainDeck:`,
+`Rune Pool:`, `Sideboard:`) and `//` or `#` comments are skipped.
+
 ## Stores (probed 1 Aug 2026)
 
 | Store | Method |

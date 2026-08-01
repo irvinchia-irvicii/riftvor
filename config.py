@@ -15,6 +15,9 @@ DB_PATH = STATE_DIR / "riftvor.db"
 ART_DIR = STATE_DIR / "art"
 
 PORT = int(os.environ.get("RIFTVOR_PORT", 5009))
+# Localhost-only by default. Set RIFTVOR_HOST=0.0.0.0 to serve the LAN —
+# there is no authentication, so only do that on a network you trust.
+HOST = os.environ.get("RIFTVOR_HOST", "127.0.0.1")
 
 # ── Politeness (§10 of the PRD) ─────────────────────────────────────────────
 USER_AGENT = "Riftvor/1.0 personal price tracker"

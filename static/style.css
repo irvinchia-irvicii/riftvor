@@ -146,6 +146,10 @@ button:disabled { opacity: .5; cursor: wait; }
   font-size: 12.5px;
   color: #ffb3b3;
 }
+/* Without min-width:0 a 1fr grid column refuses to shrink below its
+   content, so a wide comparison table drags the whole PAGE sideways
+   instead of scrolling inside .table-wrap. */
+.results { min-width: 0; }
 .table-wrap { overflow-x: auto; }
 table { border-collapse: collapse; width: 100%; }
 th, td {
@@ -180,6 +184,63 @@ td.card-cell img {
 .caro-item { padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
 .caro-item a { color: var(--accent-2); text-decoration: none; }
 .caro-item .p { color: var(--good); font-weight: 600; margin-left: 8px; }
+/* Purchase plans */
+.plan-box { margin-top: 16px; }
+.plan-row {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  padding: 7px 10px;
+  margin-bottom: 6px;
+  cursor: pointer;
+}
+.plan-row:hover { border-color: var(--accent-2); border-left-color: var(--accent-2); }
+.plan-head { display: flex; align-items: baseline; gap: 8px; }
+.plan-name { font-weight: 600; font-size: 12.5px; }
+.plan-total { margin-left: auto; color: var(--good); font-weight: 700; font-size: 13.5px; }
+.plan-sub { color: var(--muted); font-size: 11px; margin-top: 2px; }
+.plan-short { color: var(--warn); }
+.plan-prem { color: var(--warn); }
+.plan-sechead {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  margin: 12px 0 6px;
+}
+.plan-caveat { color: var(--muted); font-size: 10.5px; line-height: 1.4; }
+.plan-caveat div { margin-top: 5px; }
+.plan-body { max-height: 62vh; overflow-y: auto; }
+.plan-store { margin-bottom: 14px; }
+.plan-store-head {
+  display: flex;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 4px;
+  margin-bottom: 4px;
+  font-size: 13px;
+}
+.plan-store-head span { margin-left: auto; color: var(--good); font-weight: 700; }
+.plan-store ul { list-style: none; margin: 0; padding: 0; }
+.plan-store li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 12.5px;
+}
+.plan-store li a { color: var(--text); text-decoration: none; }
+.plan-store li a:hover { color: var(--accent-2); }
+.plan-line-cost { margin-left: auto; font-variant-numeric: tabular-nums; }
+.plan-missing {
+  color: #ffb3b3;
+  background: #2b1e1e;
+  border: 1px solid var(--bad);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 12px;
+}
+
 .hidden { display: none !important; }
 .modal {
   position: fixed; inset: 0;

@@ -115,7 +115,107 @@ function renderResult(result) {
   }
 
   renderCarousell(result.carousell);
+  renderBasket(result.basket);
 }
+
+/* ── Purchase plans ──────────────────────────────────────────────────────── */
+
+function renderBasket(basket) {
+  const box = $("plan-box");
+  if (!basket || !basket.plans || !basket.plans.length) {
+    box.classList.add("hidden");
+    return;
+  }
+  box.classList.remove("hidden");
+  const names = basket.store_names || {};
+  const panel = $("planPanel");
+  panel.innerHTML = "";
+
+  const makeRow = (plan, isSingle) => {
+    const div = document.createElement("div");
+    div.className = "plan-row";
+    const stores = isSingle
+      ? "1 store"
+      : `${plan.store_count} store${plan.store_count === 1 ? "" : "s"}`;
+    const short = plan.lines_filled < plan.lines_total;
+    const cover = `<span class="${short ? "plan-short" : ""}">${plan.lines_filled}/${plan.lines_total} lines</span>`;
+    const prem = plan.premium > 0
+      ? ` <span class="plan-prem">+${fmt(plan.premium)}</span>` : "";
+    div.innerHTML =
+      `<div class="plan-head"><span class="plan-name">${plan.label}</span>
+         <span class="plan-total">${fmt(plan.total)}</span></div>
+       <div class="plan-sub">${stores} · ${cover}${prem}</div>`;
+    div.onclick = () => openPlan(plan, names);
+    return div;
+  };
+
+  for (const plan of basket.plans) panel.appendChild(makeRow(plan, false));
+
+  if (basket.single_store && basket.single_store.length) {
+    const head = document.createElement("div");
+    head.className = "plan-sechead";
+    head.textContent = "If you buy from one store";
+    panel.appendChild(head);
+    for (const plan of basket.single_store.slice(0, 3)) {
+      panel.appendChild(makeRow(plan, true));
+    }
+  }
+
+  const caveats = [];
+  if (basket.assumes_stock_depth) {
+    caveats.push("Stores publish in-stock, not how many — multi-copy lines "
+      + "assume they can supply the full quantity.");
+  }
+  if (basket.ambiguous_lines && basket.ambiguous_lines.length) {
+    caveats.push("Matched more than one printing (cheapest picked): "
+      + basket.ambiguous_lines.slice(0, 4).join(", ")
+      + (basket.ambiguous_lines.length > 4 ? "…" : ""));
+  }
+  $("planCaveat").innerHTML = caveats.map((c) => `<div>${c}</div>`).join("");
+}
+
+function openPlan(plan, names) {
+  $("plan-modal-title").textContent = plan.label;
+  $("plan-modal-sub").textContent =
+    `${fmt(plan.total)} · ${plan.cards_total} cards · `
+    + `${plan.lines_filled}/${plan.lines_total} lines`
+    + (plan.note ? ` · ${plan.note}` : "");
+  const body = $("plan-modal-body");
+  body.innerHTML = "";
+  for (const store of plan.by_store) {
+    const sec = document.createElement("div");
+    sec.className = "plan-store";
+    sec.innerHTML = `<div class="plan-store-head">
+        <b>${names[store.store] || store.store}</b>
+        <span>${fmt(store.subtotal)}</span></div>`;
+    const ul = document.createElement("ul");
+    for (const line of store.lines) {
+      const li = document.createElement("li");
+      const qty = line.qty > 1 ? `${line.qty}× ` : "";
+      const foil = line.finish === "foil"
+        ? ' <span class="finish-foil">FOIL</span>' : "";
+      li.innerHTML =
+        `<a href="${line.url}" target="_blank" rel="noopener">${qty}${line.name}${foil}</a>
+         <span class="cmeta">${line.card_key}</span>
+         <span class="plan-line-cost">${fmt(line.line_cost)}</span>`;
+      ul.appendChild(li);
+    }
+    sec.appendChild(ul);
+    body.appendChild(sec);
+  }
+  if (plan.missing && plan.missing.length) {
+    const miss = document.createElement("div");
+    miss.className = "plan-missing";
+    miss.textContent = "Nothing in stock for: " + plan.missing.join(" · ");
+    body.appendChild(miss);
+  }
+  $("plan-modal").classList.remove("hidden");
+}
+
+$("plan-modal-close").onclick = () => $("plan-modal").classList.add("hidden");
+$("plan-modal").addEventListener("click", (e) => {
+  if (e.target === $("plan-modal")) $("plan-modal").classList.add("hidden");
+});
 
 function renderCarousell(items) {
   const panel = $("carousell-panel");

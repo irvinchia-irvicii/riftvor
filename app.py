@@ -11,6 +11,7 @@ import time
 
 from flask import Flask, jsonify, render_template, request, send_file
 
+import basket
 import card_art
 import cards_central
 import carousell
@@ -62,11 +63,10 @@ def _sync_state():
             "dormant_notices": notices}
 
 
-@app.post("/api/search")
-def api_search():
-    payload = request.get_json(force=True) or {}
-    text = payload.get("list_text", "")
-    force = bool(payload.get("force"))
+def _full_comparison(text: str, force: bool = False,
+                     with_carousell: bool = True) -> tuple[dict, dict]:
+    """Buy list → the complete comparison the UI and the export both use.
+    Shared so an xlsx can never drift from what was on screen."""
     summary = sync.ensure_fresh(force=force)
     result = matching.comparison(text)
     # Cards Central is per-query by design: live per buy-list card, skips
@@ -83,9 +83,21 @@ def api_search():
                 row["best_price"] = cell["price"]
     result["store_order"] = (result["store_order"]
                              + [cards_central.STORE_KEY])
-    # Carousell P2P panel — fuzzy name matches, separate from store rows.
-    names = list({r["name"] for r in result["rows"] if r["name"]})
-    result["carousell"] = carousell.panel_for(names)
+    if with_carousell:
+        # Fuzzy name matches, kept separate from the store rows.
+        names = list({r["name"] for r in result["rows"] if r["name"]})
+        result["carousell"] = carousell.panel_for(names)
+    # Purchase plans — computed after Cards Central merges in, so its
+    # prices count toward the basket.
+    result["basket"] = basket.plans(result["rows"], result["store_order"])
+    return result, summary
+
+
+@app.post("/api/search")
+def api_search():
+    payload = request.get_json(force=True) or {}
+    result, summary = _full_comparison(payload.get("list_text", ""),
+                                       force=bool(payload.get("force")))
     result["sync"] = {**_sync_state(), "summary": summary}
     return jsonify(result)
 
@@ -185,8 +197,9 @@ def api_buylists_delete(name: str):
 @app.post("/api/export")
 def api_export():
     payload = request.get_json(force=True) or {}
-    text = payload.get("list_text", "")
-    result = matching.comparison(text)
+    # Carousell is a browse-and-judge panel, not a spreadsheet column.
+    result, _ = _full_comparison(payload.get("list_text", ""),
+                                 with_carousell=False)
     buf = export.comparison_xlsx(result)
     return send_file(
         buf,
@@ -229,5 +242,5 @@ def api_status():
 
 
 if __name__ == "__main__":
-    log.info("Riftvor on http://127.0.0.1:%d", config.PORT)
-    app.run(host="127.0.0.1", port=config.PORT, debug=False)
+    log.info("Riftvor on http://%s:%d", config.HOST, config.PORT)
+    app.run(host=config.HOST, port=config.PORT, debug=False)
