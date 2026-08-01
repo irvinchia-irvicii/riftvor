@@ -13,6 +13,7 @@ from flask import Flask, jsonify, render_template, request, send_file
 
 import card_art
 import cards_central
+import carousell
 import config
 import db
 import export
@@ -82,6 +83,9 @@ def api_search():
                 row["best_price"] = cell["price"]
     result["store_order"] = (result["store_order"]
                              + [cards_central.STORE_KEY])
+    # Carousell P2P panel — fuzzy name matches, separate from store rows.
+    names = list({r["name"] for r in result["rows"] if r["name"]})
+    result["carousell"] = carousell.panel_for(names)
     result["sync"] = {**_sync_state(), "summary": summary}
     return jsonify(result)
 
