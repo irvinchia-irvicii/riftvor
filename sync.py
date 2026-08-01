@@ -152,4 +152,18 @@ def ensure_fresh(force: bool = False) -> dict:
             if not r["ok"]:
                 with db.connect() as conn:
                     db.record_sync(conn, r["store"], False, r["message"], 0)
+        if any(r["ok"] for r in results):
+            _spawn_watchlist_check()
         return {"synced": results, "fresh": False}
+
+
+def _spawn_watchlist_check() -> None:
+    """PRD §3: watchlist checked on every sync (email fires in background,
+    never blocking a search response)."""
+    def _run():
+        import check_watchlist  # local import — avoids cycle at module load
+        try:
+            check_watchlist.run()
+        except Exception:  # noqa: BLE001
+            log.exception("post-sync watchlist check failed")
+    threading.Thread(target=_run, daemon=True).start()
