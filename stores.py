@@ -17,6 +17,7 @@ import json
 import logging
 import re
 import time
+from dataclasses import dataclass, field
 
 import httpx
 
@@ -24,6 +25,32 @@ from config import (BREAKER_COOLDOWN_S, BREAKER_THRESHOLD, PAGE_DELAY_S,
                     RETRIES, TIMEOUT_S, USER_AGENT)
 
 log = logging.getLogger("riftvor.stores")
+
+
+@dataclass
+class CatalogResult:
+    """The outcome of one store's catalog fetch.
+
+    The distinction that matters is *partial*: a store can answer page 1 and
+    throttle page 2, or serve products.json while refusing collections.json.
+    What comes back then looks like a catalog and is not one. Treating that
+    as success is how a sync quietly reports a quarter of a store's stock as
+    the whole of it — so anything less than every page of every handle is
+    recorded as a failure, with the reason attached.
+    """
+
+    products: list[dict] | None = None      # None = nothing came back at all
+    problems: list[str] = field(default_factory=list)
+
+    @property
+    def status(self) -> str:
+        if self.products is None:
+            return "failed"
+        return "partial" if self.problems else "ok"
+
+    @property
+    def detail(self) -> str:
+        return "; ".join(self.problems)
 
 
 class CircuitBreaker:
@@ -104,19 +131,25 @@ class ShopifyCatalogStore:
         log.warning("%s: giving up on %s (%s)", self.key, url, last_exc)
         return None
 
-    async def discover_handles(self, client: httpx.AsyncClient) -> list[str]:
+    async def discover_handles(
+            self, client: httpx.AsyncClient) -> tuple[list[str], bool]:
         """Find singles collections via /collections.json (handles WILL
-        change as sets release); fall back to the configured list."""
+        change as sets release); fall back to the configured list.
+
+        Returns (handles, discovered). `discovered=False` means the fallback
+        is in play — a hardcoded subset that goes stale as sets release, so
+        the caller must not mistake it for the store's real collection set.
+        """
         disc = self.cfg.get("discover")
         fallback = list(self.cfg.get("handles", []))
         if not disc:
-            return fallback
+            return fallback, True          # no discovery configured: expected
         data = await self._get_json(
             client, f"{self.base}/collections.json?limit=250")
         if not data or "collections" not in data:
             log.info("%s: handle discovery failed, using configured handles",
                      self.key)
-            return fallback
+            return fallback, False
         include = re.compile(disc["regex"], re.I)
         exclude = re.compile(disc["exclude_regex"], re.I) if disc.get(
             "exclude_regex") else None
@@ -131,16 +164,26 @@ class ShopifyCatalogStore:
             if must and must not in title:
                 continue
             handles.append(handle)
-        return handles or fallback
+        return (handles or fallback), bool(handles)
 
-    async def fetch_catalog(self, client: httpx.AsyncClient) -> list[dict] | None:
+    async def fetch_catalog(self, client: httpx.AsyncClient) -> CatalogResult:
         """Full catalog: every product across the store's singles
         collections, deduped by product id (Tefuda's `-copy` collections
-        repeat products). Returns None on hard failure (breaker counts it)."""
+        repeat products).
+
+        Every page of every handle has to answer for this to count as ok.
+        A page that stays unanswered after retries ends that handle's
+        pagination, and the gap is reported rather than absorbed.
+        """
         if not self.breaker.allow():
             log.info("%s: breaker open, skipping sync", self.key)
-            return None
-        handles = await self.discover_handles(client)
+            return CatalogResult(None, ["breaker open — cooling down"])
+        handles, discovered = await self.discover_handles(client)
+        problems: list[str] = []
+        if not discovered:
+            problems.append(
+                f"collection discovery unanswered — fell back to "
+                f"{len(handles)} configured handle(s)")
         products: dict[int, dict] = {}
         got_any_page = False
         for handle in handles:
@@ -150,6 +193,7 @@ class ShopifyCatalogStore:
                        f"?limit=250&page={page}")
                 data = await self._get_json(client, url)
                 if data is None:
+                    problems.append(f"{handle} page {page} unanswered")
                     break
                 got_any_page = True
                 batch = data.get("products", [])
@@ -165,9 +209,17 @@ class ShopifyCatalogStore:
             await asyncio.sleep(PAGE_DELAY_S)
         if not got_any_page:
             self.breaker.record_failure()
-            return None
+            return CatalogResult(None, problems or ["no page answered"])
+        if problems:
+            # Being throttled mid-catalog is the store asking for less
+            # traffic, so a partial counts against the breaker exactly like
+            # a failure — otherwise we retry straight back into the wall.
+            self.breaker.record_failure()
+            log.warning("%s: partial catalog (%d products) — %s",
+                        self.key, len(products), "; ".join(problems))
+            return CatalogResult(list(products.values()), problems)
         self.breaker.record_success()
-        return list(products.values())
+        return CatalogResult(list(products.values()), [])
 
 
 def make_client() -> httpx.AsyncClient:

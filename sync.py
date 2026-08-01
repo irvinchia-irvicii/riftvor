@@ -23,7 +23,7 @@ import db
 from config import RIFTMANA_ART_URL, STORES, TTL_SECONDS
 from filters import is_dropped
 from parsers import parse_product
-from stores import ShopifyCatalogStore, make_client
+from stores import CatalogResult, ShopifyCatalogStore, make_client
 
 log = logging.getLogger("riftvor.sync")
 
@@ -101,23 +101,35 @@ async def _sync_store(cfg: dict, client: httpx.AsyncClient) -> dict:
     store = ShopifyCatalogStore(cfg)
     started = time.time()
     try:
-        products = await store.fetch_catalog(client)
+        result = await store.fetch_catalog(client)
     except Exception as exc:  # noqa: BLE001 — one store must not kill the sync
         log.exception("%s: sync crashed", cfg["key"])
-        products = None
-        message = f"crash: {exc}"
-    else:
-        message = "ok" if products is not None else "fetch failed/breaker open"
-    if products is None:
-        return {"store": cfg["key"], "ok": False, "message": message,
-                "listings": 0, "took_s": round(time.time() - started, 1)}
-    rows, cards = _listing_rows(cfg, products)
+        result = CatalogResult(None, [f"crash: {exc}"])
+    took = round(time.time() - started, 1)
+
+    if result.status != "ok":
+        # A partial catalog is discarded, not written. replace_store_listings
+        # deletes the store's rows before inserting, so a truncated fetch
+        # would erase every card it failed to see — they would read as
+        # stocked nowhere, and price_history would record that fiction
+        # permanently (it is append-only). Last complete snapshot, clearly
+        # marked stale, beats a fresh and wrong one.
+        detail = result.detail or "fetch failed"
+        if result.status == "partial":
+            detail = (f"partial: {len(result.products)} products fetched but "
+                      f"discarded — {detail}")
+        with db.connect() as conn:
+            db.record_sync(conn, cfg["key"], False, detail, 0)
+        return {"store": cfg["key"], "ok": False, "status": result.status,
+                "message": detail, "listings": 0, "took_s": took}
+
+    rows, cards = _listing_rows(cfg, result.products)
     with db.connect() as conn:
         db.replace_store_listings(conn, cfg["key"], rows)
         db.upsert_cards(conn, cards)
         db.record_sync(conn, cfg["key"], True, "ok", len(rows))
-    return {"store": cfg["key"], "ok": True, "message": "ok",
-            "listings": len(rows), "took_s": round(time.time() - started, 1)}
+    return {"store": cfg["key"], "ok": True, "status": "ok", "message": "ok",
+            "listings": len(rows), "took_s": took}
 
 
 async def _sync_stores(cfgs: list[dict]) -> list[dict]:
@@ -134,8 +146,12 @@ def stale_stores(force: bool = False) -> list[dict]:
     out = []
     for cfg in STORES:
         meta = ages.get(cfg["key"])
+        # TTL applies to failures too. Retrying a failed store on every
+        # search — which is what excluding it from the TTL used to do —
+        # means the stores most likely to be throttling us are the ones we
+        # hit hardest. The breaker still backs off on top of this.
         if (meta is None or meta["age_s"] is None
-                or meta["age_s"] > TTL_SECONDS or not meta["ok"]):
+                or meta["age_s"] > TTL_SECONDS):
             out.append(cfg)
     return out
 
@@ -148,10 +164,8 @@ def ensure_fresh(force: bool = False) -> dict:
         if not cfgs:                 # that queued behind a sync is now fresh
             return {"synced": [], "fresh": True}
         results = asyncio.run(_sync_stores(cfgs))
-        for r in results:
-            if not r["ok"]:
-                with db.connect() as conn:
-                    db.record_sync(conn, r["store"], False, r["message"], 0)
+        # (_sync_store records every outcome itself, successes and failures
+        # alike, so the failure path no longer needs recording again here.)
         if any(r["ok"] for r in results):
             _spawn_watchlist_check()
         return {"synced": results, "fresh": False}
