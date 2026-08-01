@@ -3,9 +3,9 @@
 **Date:** 1 Aug 2026 · **Platform decision: Render** (confirmed by Trevor)
 **Goal:** host Riftvor publicly as a freemium paid SaaS — free price comparison;
 paid watchlist / price history / xlsx export. Open signup, unknown ceiling.
-**Status:** Stage 0 **prep commit done** (1 Aug 2026) — items 1–5 built and
-verified locally under the real gunicorn start command. The gate test itself
-is **unrun**: nothing is deployed, so the datacenter-IP question is still open.
+**Status:** Stage 0 **run — the gate FAILED** (1 Aug 2026, riftvor.onrender.com,
+free instance, singapore). Zero of five stores synced from Render's IP. See
+"Stage 0 result" below. The fork is live: Stage A as written is blocked.
 
 Companion to `riftvor-prd.md` (the v4 build PRD). That document covers the
 local single-user build; this one covers what changes to host it.
@@ -84,6 +84,49 @@ blocked one reports `fetch failed/breaker open`.
 Note: Singapore *region* does not dodge bot detection (Cloudflare classifies
 by ASN, not geography) — but it gives the lowest latency to the SG stores and
 SG users, so it is the right region regardless.
+
+## Stage 0 result (1 Aug 2026, ~14:44 SGT)
+
+`POST /api/refresh` against riftvor.onrender.com, free instance, singapore
+region. **Zero of five stores produced a usable catalog.**
+
+| Store | Status | What answered |
+|---|---|---|
+| hideout | `partial` | page 1 only (250 products); page 2 unanswered |
+| teamcardgame | `partial` | 1 of 4 handles (203 products); discovery unanswered |
+| tefuda | `failed` | nothing — discovery + both handles unanswered |
+| 4elements | `failed` | nothing |
+| goat | `failed` | `/collections.json` answered; all 3 `/products.json` did not |
+
+Both partials were discarded rather than written. Under the pre-fix code this
+same run would have reported hideout and teamcardgame as `ok` and replaced
+their complete local catalogs with 250 and 203 products.
+
+**This is throttling, not an ASN block.** Hideout served page 1 and refused
+page 2; GOAT served collections.json and refused every products.json. A
+blanket ASN block refuses the first request too. The `curl_cffi` Chrome
+impersonation fallback is wired in and did not rescue it.
+
+**Control:** the same commit, from Trevor's residential IP, ~20 minutes
+earlier: all five stores `ok`, 8,450 listings, same `PAGE_DELAY_S`, same
+cross-store parallelism. Same code, same hour, same targets — only the
+egress IP differs.
+
+**Caveat, unresolved:** three forced syncs ran from that Render IP within
+~40 minutes. Some of the escalation may be self-inflicted rather than
+standing policy. The cheap disambiguation before committing to the split
+architecture, in order:
+
+1. Leave the Render instance idle ≥1 hour.
+2. Sync stores **sequentially** rather than in parallel, and raise
+   `PAGE_DELAY_S` well above 0.5 s (both are config//`sync.py` changes, not
+   architecture).
+3. One single forced sync. If it still returns nothing, the IP is the cause
+   and the split architecture is justified. If it succeeds, this was pacing,
+   and hosted scraping stays viable at a slower cadence.
+
+Not yet tested: whether a residential proxy on the `curl_cffi` client is
+enough on its own, which would keep the whole app on Render.
 
 ## Stage A — private hosted single-user (~$7.25/mo)
 
