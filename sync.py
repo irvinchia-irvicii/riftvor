@@ -20,7 +20,8 @@ import time
 import httpx
 
 import db
-from config import RIFTMANA_ART_URL, STORES, TTL_SECONDS
+from config import (RIFTMANA_ART_URL, SEQUENTIAL_SYNC, STORE_DELAY_S, STORES,
+                    TTL_SECONDS)
 from filters import is_dropped
 from parsers import parse_product
 from stores import CatalogResult, ShopifyCatalogStore, make_client
@@ -28,6 +29,7 @@ from stores import CatalogResult, ShopifyCatalogStore, make_client
 log = logging.getLogger("riftvor.sync")
 
 _SYNC_LOCK = threading.Lock()
+_SYNC_RUNNING = threading.Event()
 
 
 def _listing_rows(cfg: dict, products: list[dict]) -> tuple[list[dict], list[dict]]:
@@ -134,8 +136,18 @@ async def _sync_store(cfg: dict, client: httpx.AsyncClient) -> dict:
 
 async def _sync_stores(cfgs: list[dict]) -> list[dict]:
     async with make_client() as client:
-        return list(await asyncio.gather(
-            *(_sync_store(cfg, client) for cfg in cfgs)))
+        if not SEQUENTIAL_SYNC:
+            return list(await asyncio.gather(
+                *(_sync_store(cfg, client) for cfg in cfgs)))
+        # One store at a time, with a pause between. Parallel is harmless
+        # residentially — five different hosts, one request each in flight —
+        # but from a datacenter IP it reads as a burst and gets throttled.
+        results = []
+        for i, cfg in enumerate(cfgs):
+            if i:
+                await asyncio.sleep(STORE_DELAY_S)
+            results.append(await _sync_store(cfg, client))
+        return results
 
 
 def stale_stores(force: bool = False) -> list[dict]:
@@ -156,6 +168,30 @@ def stale_stores(force: bool = False) -> list[dict]:
     return out
 
 
+def running() -> bool:
+    return _SYNC_RUNNING.is_set()
+
+
+def start_background(force: bool = False) -> bool:
+    """Run a sync in a daemon thread. False if one is already in flight.
+
+    A polite sequential sync takes minutes, which outruns both gunicorn's
+    worker timeout and any proxy in front of it — a synchronous /api/refresh
+    would be killed mid-crawl and report a store failure that never happened.
+    """
+    if running():
+        return False
+
+    def _run():
+        try:
+            ensure_fresh(force=force)
+        except Exception:  # noqa: BLE001 — nothing upstream to catch this
+            log.exception("background sync failed")
+
+    threading.Thread(target=_run, daemon=True).start()
+    return True
+
+
 def ensure_fresh(force: bool = False) -> dict:
     """Sync whatever is stale (or everything, if force). Blocking; safe to
     call from a Flask request. Returns a per-store summary."""
@@ -163,7 +199,11 @@ def ensure_fresh(force: bool = False) -> dict:
         cfgs = stale_stores(force)   # re-check inside the lock: the search
         if not cfgs:                 # that queued behind a sync is now fresh
             return {"synced": [], "fresh": True}
-        results = asyncio.run(_sync_stores(cfgs))
+        _SYNC_RUNNING.set()
+        try:
+            results = asyncio.run(_sync_stores(cfgs))
+        finally:
+            _SYNC_RUNNING.clear()
         # (_sync_store records every outcome itself, successes and failures
         # alike, so the failure path no longer needs recording again here.)
         if any(r["ok"] for r in results):

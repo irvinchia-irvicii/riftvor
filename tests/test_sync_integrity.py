@@ -127,3 +127,53 @@ def test_complete_catalog_is_written(monkeypatch):
     out, writes = _sync_once(CFG, CatalogResult([_product(1)], []), monkeypatch)
     assert out["ok"] is True and out["status"] == "ok"
     assert writes["replaced"] == [("teststore", 1)]
+
+
+# ── Pacing (Stage 0 re-test) ────────────────────────────────────────────────
+
+def _record_concurrency(monkeypatch):
+    """Drive _sync_stores over 3 stores, recording peak overlap and order."""
+    state = {"live": 0, "peak": 0, "order": []}
+
+    async def fake_sync_store(cfg, client):
+        state["live"] += 1
+        state["peak"] = max(state["peak"], state["live"])
+        state["order"].append(cfg["key"])
+        await asyncio.sleep(0)          # yield: parallel would interleave here
+        state["live"] -= 1
+        return {"store": cfg["key"], "ok": True, "status": "ok",
+                "message": "ok", "listings": 1, "took_s": 0.0}
+
+    class NullClient:
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): return False
+
+    monkeypatch.setattr(sync, "_sync_store", fake_sync_store)
+    monkeypatch.setattr(sync, "make_client", lambda: NullClient())
+    monkeypatch.setattr(sync, "STORE_DELAY_S", 0)   # keep the test instant
+    cfgs = [{**CFG, "key": f"s{i}"} for i in range(3)]
+    asyncio.run(sync._sync_stores(cfgs))
+    return state
+
+
+def test_parallel_is_the_default(monkeypatch):
+    monkeypatch.setattr(sync, "SEQUENTIAL_SYNC", False)
+    assert _record_concurrency(monkeypatch)["peak"] == 3
+
+
+def test_sequential_mode_syncs_one_store_at_a_time(monkeypatch):
+    # The whole point of the Render path: never more than one store in flight.
+    monkeypatch.setattr(sync, "SEQUENTIAL_SYNC", True)
+    state = _record_concurrency(monkeypatch)
+    assert state["peak"] == 1
+    assert state["order"] == ["s0", "s1", "s2"]
+
+
+def test_local_defaults_are_unchanged():
+    # Guards the promise that only render.yaml opts into the slow path.
+    import importlib
+
+    import config
+    importlib.reload(config)
+    assert config.SEQUENTIAL_SYNC is False
+    assert config.PAGE_DELAY_S == 0.5

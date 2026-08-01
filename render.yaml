@@ -35,3 +35,15 @@ services:
         generateValue: true   # read it from the Render dashboard after deploy
       - key: RIFTVOR_BASE_URL
         sync: false           # set to the service URL once Render assigns it
+
+      # ── Polite pacing (Stage 0 re-test, HOSTING.md "Stage 0 result") ──
+      # Set ONLY here. The Mac keeps the fast parallel defaults; a datacenter
+      # IP's problem is no reason to slow down the residential path.
+      # A full crawl at these settings takes minutes, so /api/refresh runs
+      # detached and reports via GET /api/state.
+      - key: RIFTVOR_SEQUENTIAL_SYNC
+        value: "1"            # one store at a time, not five at once
+      - key: RIFTVOR_PAGE_DELAY_S
+        value: "3"            # was 0.5 between pages within a store
+      - key: RIFTVOR_STORE_DELAY_S
+        value: "10"           # pause between stores

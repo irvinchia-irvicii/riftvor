@@ -118,12 +118,23 @@ standing policy. The cheap disambiguation before committing to the split
 architecture, in order:
 
 1. Leave the Render instance idle ≥1 hour.
-2. Sync stores **sequentially** rather than in parallel, and raise
-   `PAGE_DELAY_S` well above 0.5 s (both are config//`sync.py` changes, not
-   architecture).
+2. ✅ **Built.** Polite pacing, enabled only in `render.yaml`:
+   `RIFTVOR_SEQUENTIAL_SYNC=1` (one store at a time, not five at once),
+   `RIFTVOR_PAGE_DELAY_S=3` (was 0.5), `RIFTVOR_STORE_DELAY_S=10`. The Mac
+   keeps the fast parallel defaults — a datacenter IP's problem is no reason
+   to slow the residential path, and a test guards that promise.
+   A full crawl at these settings runs several minutes, so `/api/refresh`
+   returns `202` immediately and the sync continues detached; poll
+   `GET /api/state` until `syncing` is false, then read `ages`.
 3. One single forced sync. If it still returns nothing, the IP is the cause
    and the split architecture is justified. If it succeeds, this was pacing,
-   and hosted scraping stays viable at a slower cadence.
+   and hosted scraping stays viable at a slower cadence — which is enough,
+   because catalog data is global and cached, so store load is independent of
+   user count. One good sync per interval is all the product needs.
+
+Note for Stage A: `/api/nightly` is still synchronous, so under sequential
+pacing a Render Cron Job curling it will outrun the request timeout. Point it
+at the detached path or give it the background treatment before Stage A.
 
 Not yet tested: whether a residential proxy on the `curl_cffi` client is
 enough on its own, which would keep the whole app on Render.

@@ -110,7 +110,7 @@ def _sync_state():
         notices = [dict(r) for r in conn.execute(
             "SELECT * FROM dormant_notices ORDER BY noticed_at DESC")]
     return {"ages": ages, "ttl": config.TTL_SECONDS,
-            "dormant_notices": notices}
+            "dormant_notices": notices, "syncing": sync.running()}
 
 
 def _full_comparison(text: str, force: bool = False,
@@ -157,8 +157,26 @@ def api_state():
     return jsonify(_sync_state())
 
 
+def _wants_background() -> bool:
+    """Detached sync is the default exactly where it has to be — a polite
+    sequential crawl takes minutes and no HTTP client should hold that open.
+    Override either way with ?background=1 / ?background=0."""
+    raw = request.args.get("background")
+    if raw is None:
+        return config.SEQUENTIAL_SYNC
+    return raw.lower() not in ("0", "false", "no")
+
+
 @app.post("/api/refresh")
 def api_refresh():
+    if _wants_background():
+        started = sync.start_background(force=True)
+        return jsonify({
+            **_sync_state(),
+            "started": started,
+            "poll": "GET /api/state — 'syncing' goes false when it is done, "
+                    "then read per-store ok/message under 'ages'",
+        }), 202
     summary = sync.ensure_fresh(force=True)
     return jsonify({**_sync_state(), "summary": summary})
 

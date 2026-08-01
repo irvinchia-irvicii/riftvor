@@ -64,7 +64,16 @@ def auth_enabled() -> bool:
 # ── Politeness (§10 of the PRD) ─────────────────────────────────────────────
 USER_AGENT = "Riftvor/1.0 personal price tracker"
 TTL_SECONDS = int(os.environ.get("RIFTVOR_TTL_SECONDS", 300))
-PAGE_DELAY_S = 0.5          # sequential delay between pages within one store
+
+# Pacing. The defaults are the residential ones and are deliberately
+# unchanged — a datacenter IP's problem is no reason to slow down the Mac.
+# render.yaml turns the polite path on; nothing else does.
+PAGE_DELAY_S = float(os.environ.get("RIFTVOR_PAGE_DELAY_S", 0.5))
+# Stores are synced in parallel by default (fast, and fine spread across five
+# different hosts). Sequential mode exists because from Render's IP the stores
+# throttle hard — see HOSTING.md "Stage 0 result".
+SEQUENTIAL_SYNC = os.environ.get("RIFTVOR_SEQUENTIAL_SYNC", "0") == "1"
+STORE_DELAY_S = float(os.environ.get("RIFTVOR_STORE_DELAY_S", 10.0))
 TIMEOUT_S = 15.0
 RETRIES = 2
 BREAKER_THRESHOLD = 3       # consecutive failures before a store is benched
