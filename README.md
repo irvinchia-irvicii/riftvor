@@ -43,6 +43,23 @@ UI and the xlsx both say so.
 Pasted deck lists work as-is: section headers (`Legend:`, `MainDeck:`,
 `Rune Pool:`, `Sideboard:`) and `//` or `#` comments are skipped.
 
+Each store block in a plan has a **Copy list** button that puts that
+shop's cards on the clipboard as `qty Name` per line — the format
+BinderPOS-style bulk search boxes expect. Only **Hideout** actually has
+one (`/pages/multi-card-search`); the other four Shopify stores and Cards
+Central 404 on every bulk-entry path probed on 1 Aug 2026, so only Hideout
+shows a **Paste →** link. For the rest the clipboard is still useful for
+pasting into a note or a message to the shop.
+
+## Collection
+
+**+ Add all to collection** on a plan (or **+ Collection** on a single
+shop) records what you bought with the price snapshotted at purchase
+time. `/collection` shows cost basis against today's cheapest in-stock
+price, per line and in total. Cost basis is never recalculated — the gap
+is the point. Lines with nothing in stock anywhere are counted as
+unpriced and excluded from market value rather than guessed at zero.
+
 ## Stores (probed 1 Aug 2026)
 
 | Store | Method |

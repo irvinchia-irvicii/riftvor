@@ -174,20 +174,130 @@ function renderBasket(basket) {
   $("planCaveat").innerHTML = caveats.map((c) => `<div>${c}</div>`).join("");
 }
 
+/* Clipboard needs a secure context (https / localhost). Over plain http
+   on a LAN IP navigator.clipboard is undefined, so fall back to the old
+   execCommand trick rather than silently doing nothing. */
+async function copyText(text) {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch { /* fall through */ }
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
+function flash(btn, msg, ms = 1400) {
+  const original = btn.textContent;
+  btn.textContent = msg;
+  btn.disabled = true;
+  setTimeout(() => { btn.textContent = original; btn.disabled = false; }, ms);
+}
+
+/* Decklist form — 'qty Name' per line — which is what BinderPOS-style
+   multi-card search boxes expect. */
+function storeAsDecklist(store) {
+  return store.lines.map((l) => `${l.qty} ${l.name}`).join("\n");
+}
+
+function planToCollectionItems(lines) {
+  return lines.map((l) => ({
+    card_key: l.card_key, finish: l.finish, qty: l.qty,
+    unit_paid: l.unit_price, store: l.store,
+  }));
+}
+
+async function addToCollection(items, btn, label) {
+  try {
+    const r = await api("/api/collection", {
+      method: "POST",
+      body: JSON.stringify({ items, note: label || null }),
+    });
+    flash(btn, `Added ${r.added} ✓`);
+  } catch (err) {
+    flash(btn, "Failed");
+  }
+}
+
 function openPlan(plan, names) {
   $("plan-modal-title").textContent = plan.label;
   $("plan-modal-sub").textContent =
     `${fmt(plan.total)} · ${plan.cards_total} cards · `
     + `${plan.lines_filled}/${plan.lines_total} lines`
     + (plan.note ? ` · ${plan.note}` : "");
+
+  const allLines = plan.by_store.flatMap((s) => s.lines);
+  const addAll = $("plan-add-all");
+  addAll.textContent = "+ Add all to collection";
+  addAll.disabled = false;
+  addAll.onclick = () =>
+    addToCollection(planToCollectionItems(allLines), addAll, plan.label);
+
   const body = $("plan-modal-body");
   body.innerHTML = "";
   for (const store of plan.by_store) {
     const sec = document.createElement("div");
     sec.className = "plan-store";
-    sec.innerHTML = `<div class="plan-store-head">
-        <b>${names[store.store] || store.store}</b>
-        <span>${fmt(store.subtotal)}</span></div>`;
+
+    const head = document.createElement("div");
+    head.className = "plan-store-head";
+    head.innerHTML = `<b>${names[store.store] || store.store}</b>`;
+
+    const tools = document.createElement("span");
+    tools.className = "plan-store-tools";
+
+    const copyBtn = document.createElement("button");
+    copyBtn.className = "mini";
+    copyBtn.textContent = "Copy list";
+    copyBtn.title = "Copy this shop's cards as 'qty Name' per line";
+    copyBtn.onclick = async () => {
+      const ok = await copyText(storeAsDecklist(store));
+      flash(copyBtn, ok ? "Copied ✓" : "Copy failed");
+    };
+    tools.appendChild(copyBtn);
+
+    // Only Hideout has a bulk-entry page to paste into (probed Aug 2026).
+    const cfg = STORES.find((s) => s.key === store.store);
+    if (cfg && cfg.multi_search) {
+      const link = document.createElement("a");
+      link.className = "mini";
+      link.href = cfg.multi_search;
+      link.target = "_blank";
+      link.rel = "noopener";
+      link.textContent = "Paste →";
+      link.title = "Open this shop's multi-card search";
+      tools.appendChild(link);
+    }
+
+    const addBtn = document.createElement("button");
+    addBtn.className = "mini";
+    addBtn.textContent = "+ Collection";
+    addBtn.title = "Add just this shop's cards at these prices";
+    addBtn.onclick = () => addToCollection(
+      planToCollectionItems(store.lines), addBtn,
+      `${plan.label} — ${names[store.store] || store.store}`);
+    tools.appendChild(addBtn);
+
+    const sub = document.createElement("span");
+    sub.className = "plan-store-sub";
+    sub.textContent = fmt(store.subtotal);
+    tools.appendChild(sub);
+
+    head.appendChild(tools);
+    sec.appendChild(head);
+
     const ul = document.createElement("ul");
     for (const line of store.lines) {
       const li = document.createElement("li");

@@ -15,6 +15,7 @@ import basket
 import card_art
 import cards_central
 import carousell
+import collection
 import config
 import db
 import export
@@ -39,7 +40,8 @@ config.load_env()
 def index():
     return render_template(
         "index.html",
-        stores=([{"key": s["key"], "name": s["name"], "base": s["base"]}
+        stores=([{"key": s["key"], "name": s["name"], "base": s["base"],
+                  "multi_search": s.get("multi_search")}
                  for s in config.STORES]
                 + [{"key": config.CARDS_CENTRAL["key"],
                     "name": config.CARDS_CENTRAL["name"],
@@ -155,6 +157,34 @@ def api_watchlist_add():
 @app.delete("/api/watchlist/<card_key>/<finish>")
 def api_watchlist_remove(card_key: str, finish: str):
     watchlist.remove(card_key, finish)
+    return jsonify({"ok": True})
+
+
+# ── Collection (cost basis vs today's market) ───────────────────────────────
+
+@app.get("/collection")
+def collection_page():
+    return render_template("collection.html")
+
+
+@app.get("/api/collection")
+def api_collection():
+    return jsonify(collection.list_items())
+
+
+@app.post("/api/collection")
+def api_collection_add():
+    payload = request.get_json(force=True) or {}
+    items = payload.get("items") or []
+    if not isinstance(items, list):
+        return jsonify({"error": "items must be a list"}), 400
+    added = collection.add_many(items, note=payload.get("note"))
+    return jsonify({"ok": True, "added": added})
+
+
+@app.delete("/api/collection/<int:item_id>")
+def api_collection_remove(item_id: int):
+    collection.remove(item_id)
     return jsonify({"ok": True})
 
 

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Riftvor — Collection</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header>
+  <div class="brand">
+    <h1>Riftvor</h1>
+    <span class="sub">Collection · cost basis vs market</span>
+  </div>
+  <a class="ghost btn-link" href="/" style="margin-left:auto;">← Compare</a>
+</header>
+
+<main class="single">
+  <section>
+    <div class="coll-totals" id="collTotals"></div>
+    <div id="collEmpty" class="hint hidden">
+      Nothing here yet. Run a search, open a purchase plan, and use
+      <b>+ Add all to collection</b> (or a single shop's <b>+ Collection</b>)
+      after you buy — prices are snapshotted at what you paid.
+    </div>
+    <div class="table-wrap">
+      <table id="collTable" class="hidden">
+        <thead><tr>
+          <th>Card</th><th>Bought</th><th>Qty</th>
+          <th>Paid ea.</th><th>Paid</th><th>Market ea.</th>
+          <th>Market</th><th>P/L</th><th></th>
+        </tr></thead>
+        <tbody id="collBody"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<script src="{{ url_for('static', filename='collection.js') }}"></script>
+</body>
+</html>

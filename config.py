@@ -65,6 +65,9 @@ STORES: list[dict] = [
         "handles": ["riftbound-singles"],
         "discover": {"regex": r"riftbound.*singles"},
         "parser": "hideout",
+        # BinderPOS decklist widget — the only SG store with bulk entry
+        # (probed 1 Aug 2026; the other four 404 on this path).
+        "multi_search": "https://hideoutcg.com/pages/multi-card-search",
     },
     {
         "key": "tefuda",

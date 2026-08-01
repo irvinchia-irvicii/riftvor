@@ -241,6 +241,51 @@ td.card-cell img {
   font-size: 12px;
 }
 
+/* Small inline buttons (plan modal store tools) */
+button.mini, a.mini {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--muted);
+  cursor: pointer;
+  text-decoration: none;
+  line-height: 1.6;
+}
+button.mini:hover, a.mini:hover { border-color: var(--accent-2); color: var(--accent-2); }
+button.mini:disabled { opacity: .7; cursor: default; color: var(--good); border-color: var(--good); }
+.plan-store-tools { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.plan-store-sub { color: var(--good); font-weight: 700; min-width: 62px; text-align: right; }
+.btn-link { display: inline-block; padding: 8px 16px; border-radius: 8px;
+            border: 1px solid var(--line); background: var(--panel-2);
+            color: var(--text); text-decoration: none; font-size: 13px; }
+.btn-link:hover { border-color: var(--accent); }
+#plan-add-all { margin-left: auto; }
+
+/* Collection page */
+main.single { grid-template-columns: 1fr; }
+.coll-totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 16px;
+  align-items: stretch;
+}
+.coll-stat {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 16px;
+  min-width: 110px;
+}
+.coll-stat span { display: block; color: var(--muted); font-size: 11px;
+                  text-transform: uppercase; letter-spacing: .5px; }
+.coll-stat b { font-size: 18px; }
+.coll-note { flex-basis: 100%; color: var(--muted); font-size: 11.5px; }
+.pl-up { color: var(--good); font-weight: 700; }
+.pl-down { color: var(--bad); font-weight: 700; }
+
 .hidden { display: none !important; }
 .modal {
   position: fixed; inset: 0;

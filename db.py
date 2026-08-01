@@ -68,6 +68,21 @@ CREATE TABLE IF NOT EXISTS buy_lists(
     created_at REAL NOT NULL
 );
 
+-- What you actually bought, at what you actually paid. unit_paid is
+-- snapshotted at purchase time and never recalculated — the whole point
+-- is comparing cost basis against today's market.
+CREATE TABLE IF NOT EXISTS collection(
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    card_key    TEXT NOT NULL,
+    finish      TEXT NOT NULL DEFAULT 'nonfoil',
+    qty         INTEGER NOT NULL DEFAULT 1,
+    unit_paid   REAL NOT NULL,
+    store       TEXT,
+    acquired_at REAL NOT NULL,
+    note        TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_collection_card ON collection(card_key, finish);
+
 CREATE TABLE IF NOT EXISTS sync_meta(
     store         TEXT PRIMARY KEY,
     synced_at     REAL,
