@@ -6,3 +6,6 @@ state/
 server.log
 *.log
 .DS_Store
+
+# Store outreach notes — strategy about named businesses, keep out of a public repo
+OUTREACH.md
