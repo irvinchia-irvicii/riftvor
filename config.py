@@ -69,11 +69,50 @@ TTL_SECONDS = int(os.environ.get("RIFTVOR_TTL_SECONDS", 300))
 # unchanged — a datacenter IP's problem is no reason to slow down the Mac.
 # render.yaml turns the polite path on; nothing else does.
 PAGE_DELAY_S = float(os.environ.get("RIFTVOR_PAGE_DELAY_S", 0.5))
+# Jitter on top of every delay. A metronome-exact interval is itself a bot
+# signal; 3vor Fetch pairs a 300 ms floor with 0–600 ms of jitter for the
+# same reason (its domain_rate_limiter.go).
+PAGE_JITTER_S = float(os.environ.get("RIFTVOR_PAGE_JITTER_S", 0.6))
 # Stores are synced in parallel by default (fast, and fine spread across five
 # different hosts). Sequential mode exists because from Render's IP the stores
 # throttle hard — see HOSTING.md "Stage 0 result".
 SEQUENTIAL_SYNC = os.environ.get("RIFTVOR_SEQUENTIAL_SYNC", "0") == "1"
 STORE_DELAY_S = float(os.environ.get("RIFTVOR_STORE_DELAY_S", 10.0))
+
+# ── Egress proxy (HOSTING.md "Stage 0 result") ──────────────────────────────
+# Shopify's edge refuses this app from datacenter IPs — not rate-based, so no
+# amount of pacing fixes it. 3vor Fetch hit the identical wall and says so in
+# its own source (binderpos/storefront.go: "direct calls (no proxy) fail for
+# Shopify/Cloudflare stores ... a residential proxy is required").
+#
+# Unset = direct, which is what the Mac wants: the residential path has never
+# needed this. Accepts a full URL (http://user:pass@host:port) or 3vor Fetch's
+# pipe format (host|port|user|pass) so credentials stay portable between the
+# two projects.
+_PROXY_RAW = os.environ.get("RIFTVOR_PROXY_URL", "").strip()
+
+
+def _parse_proxy(raw: str) -> str:
+    if not raw or "://" in raw:
+        return raw
+    parts = [p.strip() for p in raw.split("|")]
+    host, port = (parts + ["", ""])[:2]
+    user, password = (parts[2:] + ["", ""])[:2]
+    if not host or not port:
+        return ""
+    auth = f"{user}:{password}@" if (user or password) else ""
+    return f"http://{auth}{host}:{port}"
+
+
+PROXY_URL = _parse_proxy(_PROXY_RAW)
+
+
+def proxy_label() -> str:
+    """Host:port only — never let credentials reach a log line."""
+    if not PROXY_URL:
+        return "direct"
+    tail = PROXY_URL.split("://", 1)[-1]
+    return tail.rsplit("@", 1)[-1] or "direct"
 TIMEOUT_S = 15.0
 RETRIES = 2
 BREAKER_THRESHOLD = 3       # consecutive failures before a store is benched

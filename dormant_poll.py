@@ -17,7 +17,8 @@ import time
 import httpx
 
 import db
-from config import DORMANT_STORES, STATE_DIR, TIMEOUT_S, USER_AGENT
+from config import (DORMANT_STORES, PROXY_URL, STATE_DIR, TIMEOUT_S,
+                    USER_AGENT)
 from filters import is_dropped
 from parsers import BRACKET_RE, PAREN_RE
 
@@ -53,7 +54,8 @@ def due(now: float | None = None) -> bool:
 def poll() -> list[dict]:
     notices = []
     with httpx.Client(headers={"User-Agent": USER_AGENT},
-                      timeout=TIMEOUT_S, follow_redirects=True) as client:
+                      timeout=TIMEOUT_S, follow_redirects=True,
+                      proxy=PROXY_URL or None) as client:
         for store in DORMANT_STORES:
             url = (f"{store['base']}/search/suggest.json"
                    f"?q=riftbound&resources[type]=product")

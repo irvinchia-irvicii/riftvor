@@ -55,6 +55,10 @@ if config.auth_enabled():
     log.info("basic auth ON (user %r)", config.AUTH_USER)
 else:
     log.info("basic auth OFF — localhost only")
+log.info("egress: %s | sync: %s | page delay: %.1f+0–%.1fs",
+         config.proxy_label(),
+         "sequential" if config.SEQUENTIAL_SYNC else "parallel",
+         config.PAGE_DELAY_S, config.PAGE_JITTER_S)
 
 
 @auth.verify_password

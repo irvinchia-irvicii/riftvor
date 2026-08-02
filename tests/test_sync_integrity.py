@@ -169,6 +169,54 @@ def test_sequential_mode_syncs_one_store_at_a_time(monkeypatch):
     assert state["order"] == ["s0", "s1", "s2"]
 
 
+# ── Egress proxy ────────────────────────────────────────────────────────────
+
+def test_proxy_accepts_a_plain_url():
+    import config
+    assert config._parse_proxy("http://u:p@1.2.3.4:8080") == "http://u:p@1.2.3.4:8080"
+
+
+def test_proxy_accepts_3vor_fetch_pipe_format():
+    # Credentials stay portable between the two projects.
+    import config
+    assert config._parse_proxy("1.2.3.4|8080|user|pass") == "http://user:pass@1.2.3.4:8080"
+    assert config._parse_proxy("1.2.3.4|8080") == "http://1.2.3.4:8080"
+
+
+def test_proxy_unset_or_malformed_means_direct():
+    import config
+    assert config._parse_proxy("") == ""
+    assert config._parse_proxy("nonsense") == ""      # no port -> not a proxy
+    assert config._parse_proxy("host|") == ""
+
+
+def test_proxy_label_never_leaks_credentials(monkeypatch):
+    # This label goes to a log line on every boot.
+    import config
+    monkeypatch.setattr(config, "PROXY_URL", "http://user:hunter2@1.2.3.4:8080")
+    label = config.proxy_label()
+    assert label == "1.2.3.4:8080"
+    assert "hunter2" not in label and "user" not in label
+
+
+def test_proxy_reaches_every_egress_path(monkeypatch):
+    """All five outbound paths must honour it — one missed client would leak
+    the real IP and re-trip the block that the proxy exists to avoid."""
+    import cards_central
+    import carousell
+    import dormant_poll
+    assert stores.make_client  # httpx: stores + cards_central (via make_client)
+    assert stores.cffi_proxies  # curl_cffi: stores fallback + carousell
+    assert "make_client" in cards_central.lookup.__globals__["stores"].__dict__
+    assert "stores" in carousell._fetch_html.__code__.co_names
+    assert "PROXY_URL" in dormant_poll.poll.__globals__
+
+
+def test_pacing_is_jittered():
+    import config
+    assert config.PAGE_JITTER_S > 0
+
+
 def test_local_defaults_are_unchanged():
     # Guards the promise that only render.yaml opts into the slow path.
     import importlib
@@ -177,3 +225,4 @@ def test_local_defaults_are_unchanged():
     importlib.reload(config)
     assert config.SEQUENTIAL_SYNC is False
     assert config.PAGE_DELAY_S == 0.5
+    assert config.PROXY_URL == ""          # the Mac has never needed one

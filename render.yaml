@@ -47,3 +47,12 @@ services:
         value: "3"            # was 0.5 between pages within a store
       - key: RIFTVOR_STORE_DELAY_S
         value: "10"           # pause between stores
+
+      # Egress proxy. Stage 0 showed Shopify's edge refuses this app from
+      # datacenter IPs regardless of pacing; 3vor Fetch reached the same
+      # conclusion and solved it the same way. Set the value in the Render
+      # dashboard — it carries credentials and must never land in the repo.
+      # Accepts http://user:pass@host:port or host|port|user|pass.
+      # Leave unset and the app runs direct, exactly as it does today.
+      - key: RIFTVOR_PROXY_URL
+        sync: false

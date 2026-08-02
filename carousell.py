@@ -40,8 +40,10 @@ _lock = threading.Lock()
 def _fetch_html() -> str | None:
     try:
         from curl_cffi import requests as cffi_requests
+
+        import stores
         resp = cffi_requests.get(CAROUSELL_URL, impersonate="chrome",
-                                 timeout=20)
+                                 timeout=20, proxies=stores.cffi_proxies())
         if resp.status_code == 200:
             return resp.text
         log.warning("carousell → HTTP %s", resp.status_code)

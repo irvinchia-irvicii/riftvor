@@ -136,8 +136,52 @@ Note for Stage A: `/api/nightly` is still synchronous, so under sequential
 pacing a Render Cron Job curling it will outrun the request timeout. Point it
 at the detached path or give it the background treatment before Stage A.
 
-Not yet tested: whether a residential proxy on the `curl_cffi` client is
-enough on its own, which would keep the whole app on Render.
+**Pacing re-test (1 Aug 2026, +98 min idle, sequential, 3 s pages): no
+change.** Still zero usable catalogs; GOAT moved `failed` → `partial`, which
+is noise. Decisive detail: `/collections.json` was refused for *every* store
+in the same 90 seconds. Five unrelated merchants on five domains do not
+coordinate a rate limit — what they share is Shopify. This is the platform
+edge making a reputation call on the IP, which is why no pacing setting
+touches it. **Pacing hypothesis closed.**
+
+### Confirmed by 3vor Fetch
+
+The sibling project reached the same conclusion and wrote it in its source.
+`api/gateway/binderpos/storefront.go:12`:
+
+> "direct calls (no proxy) fail for Shopify/Cloudflare stores … a residential
+> proxy via DYNAMIC_PROXY env var is required"
+
+Its AWS Lambda runs outside a VPC, so it egresses from `ap-southeast-1`
+datacenter IPs and hits exactly this wall; its whole proxy tier
+(`DEDICATED_PROXY_1..7`, `DYNAMIC_PROXY`, `RESIDENTIAL_PROXY_1`) exists to
+work around it. Its strategy ladder puts the proxied attempt *first*, and
+`searchByStorefrontAPI` refuses to run without one. That is working
+precedent, not speculation.
+
+### Proxy support — built (1 Aug 2026)
+
+`RIFTVOR_PROXY_URL`, set only in the Render dashboard (it carries
+credentials). Accepts `http://user:pass@host:port` or 3vor Fetch's
+`host|port|user|pass`, so credentials stay portable between the projects.
+Unset = direct, which is what the Mac wants.
+
+All five egress paths honour it — `stores.py` (httpx + the `curl_cffi`
+fallback), `cards_central.py`, `carousell.py`, `dormant_poll.py. One missed
+client would leak the real IP and re-trip the block the proxy exists to
+avoid, so `stores.make_client()` is the single place outbound traffic is
+configured and a test pins that. Credentials never reach a log line.
+
+Pacing also gained jitter (`PAGE_JITTER_S`, 0–0.6 s on top of every delay) —
+a metronome-exact interval is itself a bot signal, which is why 3vor Fetch
+pairs its 300 ms floor with 0–600 ms of jitter.
+
+**Still needed: a proxy provider account.** Costs should be far lower here
+than for 3vor Fetch, which caches nothing and scrapes live on every user
+query. Riftvor's catalog is global and TTL-cached, so proxy traffic is one
+sync per interval *regardless of user count* — roughly 5–10 MB per full
+five-store sync. At typical residential rates that is low single-digit
+dollars a month, provided sync frequency stays controlled.
 
 ## Stage A — private hosted single-user (~$7.25/mo)
 

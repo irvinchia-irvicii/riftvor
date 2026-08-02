@@ -22,6 +22,7 @@ import re
 
 import httpx
 
+import stores
 from config import CARDS_CENTRAL, TIMEOUT_S, USER_AGENT
 from stores import breaker_for
 
@@ -99,9 +100,9 @@ async def _lookup_async(cards: list[dict]) -> dict[str, dict]:
     if not names:
         return {}
     sem = asyncio.Semaphore(_CONCURRENCY)
-    async with httpx.AsyncClient(
-            headers={"User-Agent": USER_AGENT}, timeout=TIMEOUT_S,
-            follow_redirects=True) as client:
+    # stores.make_client so the egress proxy applies here too — Cards Central
+    # is scraped from the same IP and refused for the same reason.
+    async with stores.make_client() as client:
         batches = await asyncio.gather(
             *(_search_one(client, sem, name) for name in names))
     wanted = {c["card_key"] for c in cards}

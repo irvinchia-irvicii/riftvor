@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import random
 import re
 import time
 from dataclasses import dataclass, field
@@ -22,9 +23,19 @@ from dataclasses import dataclass, field
 import httpx
 
 from config import (BREAKER_COOLDOWN_S, BREAKER_THRESHOLD, PAGE_DELAY_S,
-                    RETRIES, TIMEOUT_S, USER_AGENT)
+                    PAGE_JITTER_S, PROXY_URL, RETRIES, TIMEOUT_S, USER_AGENT)
 
 log = logging.getLogger("riftvor.stores")
+
+
+async def pace() -> None:
+    """Wait before the next request to a store, with jitter."""
+    await asyncio.sleep(PAGE_DELAY_S + random.uniform(0, PAGE_JITTER_S))
+
+
+def cffi_proxies() -> dict | None:
+    """curl_cffi takes requests-style proxies; httpx takes a single URL."""
+    return {"http": PROXY_URL, "https": PROXY_URL} if PROXY_URL else None
 
 
 @dataclass
@@ -90,7 +101,8 @@ def _curl_cffi_get_json(url: str) -> dict | None:
     try:
         from curl_cffi import requests as cffi_requests
         resp = cffi_requests.get(url, impersonate="chrome",
-                                 timeout=TIMEOUT_S)
+                                 timeout=TIMEOUT_S,
+                                 proxies=cffi_proxies())
         if resp.status_code == 200:
             return resp.json()
         log.warning("curl_cffi fallback for %s → HTTP %s", url,
@@ -205,8 +217,8 @@ class ShopifyCatalogStore:
                 if len(batch) < 250:
                     break
                 page += 1
-                await asyncio.sleep(PAGE_DELAY_S)
-            await asyncio.sleep(PAGE_DELAY_S)
+                await pace()
+            await pace()
         if not got_any_page:
             self.breaker.record_failure()
             return CatalogResult(None, problems or ["no page answered"])
@@ -223,8 +235,12 @@ class ShopifyCatalogStore:
 
 
 def make_client() -> httpx.AsyncClient:
+    """The one place outbound store traffic is configured. Everything that
+    talks to a store builds its client here so the proxy can never be
+    applied to four of the five egress paths and forgotten on the fifth."""
     return httpx.AsyncClient(
         headers={"User-Agent": USER_AGENT},
         timeout=TIMEOUT_S,
         follow_redirects=True,
+        proxy=PROXY_URL or None,
     )
