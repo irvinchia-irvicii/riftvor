@@ -17,6 +17,11 @@ def temp_db(tmp_path, monkeypatch):
     monkeypatch.setattr(db, "DB_PATH", tmp_path / "test.db")
     db.init_db()
     with db.connect() as conn:
+        conn.execute(
+            """INSERT INTO users (email, password_hash, tier, created_at)
+               VALUES ('collector@example.com', 'test', 'member', ?)""",
+            (time.time(),),
+        )
         conn.executemany(
             """INSERT INTO cards (card_key, set_code, number, name)
                VALUES (?, ?, ?, ?)""",
@@ -30,14 +35,14 @@ def temp_db(tmp_path, monkeypatch):
              ("hideout", "OGN-043", "u2", 1.50, "nonfoil", 1, time.time()),
              # Cheaper but out of stock — must not set market value.
              ("tefuda", "OGN-043", "u3", 0.10, "nonfoil", 0, time.time())])
-    return tmp_path
+    return 1
 
 
 def test_add_and_value_uses_cheapest_in_stock(temp_db):
-    assert collection.add_many([
+    assert collection.add_many(temp_db, [
         {"card_key": "OGN-043", "finish": "nonfoil", "qty": 4,
          "unit_paid": 0.80, "store": "goat"}]) == 1
-    data = collection.list_items()
+    data = collection.list_items(temp_db)
     item = data["items"][0]
     assert item["name"] == "Charm"
     assert item["paid"] == 3.20          # 4 x 0.80, snapshotted
@@ -48,20 +53,20 @@ def test_add_and_value_uses_cheapest_in_stock(temp_db):
 
 
 def test_cost_basis_is_never_recalculated(temp_db):
-    collection.add_many([{"card_key": "OGN-043", "qty": 1, "unit_paid": 0.80}])
+    collection.add_many(temp_db, [{"card_key": "OGN-043", "qty": 1, "unit_paid": 0.80}])
     # Market moves; what you paid must not.
     with db.connect() as conn:
         conn.execute("UPDATE listings SET price = 99.00 WHERE card_key = ?",
                      ("OGN-043",))
-    item = collection.list_items()["items"][0]
+    item = collection.list_items(temp_db)["items"][0]
     assert item["unit_paid"] == 0.80
     assert item["unit_now"] == 99.00
     assert item["delta"] == 98.20
 
 
 def test_item_with_no_in_stock_listing_is_unpriced_not_zero(temp_db):
-    collection.add_many([{"card_key": "UNL-053", "qty": 1, "unit_paid": 3.50}])
-    data = collection.list_items()
+    collection.add_many(temp_db, [{"card_key": "UNL-053", "qty": 1, "unit_paid": 3.50}])
+    data = collection.list_items(temp_db)
     item = data["items"][0]
     assert item["unit_now"] is None
     assert item["value"] is None
@@ -73,7 +78,7 @@ def test_item_with_no_in_stock_listing_is_unpriced_not_zero(temp_db):
 
 
 def test_malformed_items_are_skipped_not_stored(temp_db):
-    added = collection.add_many([
+    added = collection.add_many(temp_db, [
         {"card_key": "OGN-043", "qty": 1, "unit_paid": 1.0},   # good
         {"finish": "foil", "qty": 1, "unit_paid": 1.0},        # no card_key
         {"card_key": "OGN-043", "qty": 1},                     # no price
@@ -81,17 +86,73 @@ def test_malformed_items_are_skipped_not_stored(temp_db):
         {"card_key": "OGN-043", "qty": 1, "unit_paid": -5},    # negative
     ])
     assert added == 1
-    assert collection.list_items()["summary"]["lines"] == 1
+    assert collection.list_items(temp_db)["summary"]["lines"] == 1
 
 
 def test_unknown_finish_defaults_to_nonfoil(temp_db):
-    collection.add_many([{"card_key": "OGN-043", "finish": "sparkly",
+    collection.add_many(temp_db, [{"card_key": "OGN-043", "finish": "sparkly",
                           "qty": 1, "unit_paid": 1.0}])
-    assert collection.list_items()["items"][0]["finish"] == "nonfoil"
+    assert collection.list_items(temp_db)["items"][0]["finish"] == "nonfoil"
 
 
 def test_remove(temp_db):
-    collection.add_many([{"card_key": "OGN-043", "qty": 1, "unit_paid": 1.0}])
-    item_id = collection.list_items()["items"][0]["id"]
-    collection.remove(item_id)
-    assert collection.list_items()["summary"]["lines"] == 0
+    collection.add_many(temp_db, [{"card_key": "OGN-043", "qty": 1, "unit_paid": 1.0}])
+    item_id = collection.list_items(temp_db)["items"][0]["id"]
+    collection.remove(temp_db, item_id)
+    assert collection.list_items(temp_db)["summary"]["lines"] == 0
+
+
+def test_collection_is_private_per_user(temp_db):
+    with db.connect() as conn:
+        second_id = conn.execute(
+            """INSERT INTO users (email, password_hash, tier, created_at)
+               VALUES ('second@example.com', 'test', 'member', ?)""",
+            (time.time(),),
+        ).lastrowid
+    collection.add_many(temp_db, [
+        {"card_key": "OGN-043", "qty": 1, "unit_paid": 1.0}
+    ])
+    assert collection.list_items(temp_db)["summary"]["lines"] == 1
+    assert collection.list_items(second_id)["summary"]["lines"] == 0
+
+
+def test_folders_organize_without_owning_cards(temp_db):
+    folder, error = collection.create_folder(temp_db, "Jinx deck")
+    assert error is None
+    duplicate, error = collection.create_folder(temp_db, "Jinx deck")
+    assert duplicate is None
+    assert "already" in error
+
+    collection.add_many(temp_db, [{
+        "card_key": "OGN-043", "qty": 2, "unit_paid": 0.75,
+        "folder_id": folder["id"],
+    }])
+    item = collection.list_items(temp_db)["items"][0]
+    assert item["folder_name"] == "Jinx deck"
+    assert collection.list_folders(temp_db)[0]["card_count"] == 2
+
+    changed, error = collection.rename_folder(
+        temp_db, folder["id"], "Jinx sideboard"
+    )
+    assert changed and error is None
+    assert collection.list_items(temp_db)["items"][0]["folder_name"] == "Jinx sideboard"
+
+    assert collection.delete_folder(temp_db, folder["id"])
+    item = collection.list_items(temp_db)["items"][0]
+    assert item["folder_id"] is None
+    assert item["folder_name"] is None
+
+
+def test_cannot_assign_another_users_folder(temp_db):
+    with db.connect() as conn:
+        second_id = conn.execute(
+            """INSERT INTO users (email, password_hash, tier, created_at)
+               VALUES ('folder-owner@example.com', 'test', 'member', ?)""",
+            (time.time(),),
+        ).lastrowid
+    folder, _ = collection.create_folder(second_id, "Private deck")
+    collection.add_many(temp_db, [{
+        "card_key": "OGN-043", "qty": 1, "unit_paid": 1,
+        "folder_id": folder["id"],
+    }])
+    assert collection.list_items(temp_db)["items"][0]["folder_id"] is None

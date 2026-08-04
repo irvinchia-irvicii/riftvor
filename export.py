@@ -147,4 +147,4 @@ def comparison_xlsx(result: dict) -> io.BytesIO:
 
 
 def filename() -> str:
-    return f"riftvor_comparison_{time.strftime('%Y%m%d_%H%M')}.xlsx"
+    return f"farsight_comparison_{time.strftime('%Y%m%d_%H%M')}.xlsx"

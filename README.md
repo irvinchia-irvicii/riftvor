@@ -1,4 +1,6 @@
-# Riftvor
+# Farsight
+
+*See beyond the fog — Riftbound market intelligence for Singapore.*
 
 Riftbound (League of Legends TCG) singles price scraper for the Singapore
 market. Paste a buy list → one SGD price-comparison table across every SG
@@ -51,6 +53,21 @@ Central 404 on every bulk-entry path probed on 1 Aug 2026, so only Hideout
 shows a **Paste →** link. For the rest the clipboard is still useful for
 pasting into a note or a message to the shop.
 
+## Accounts and access tiers
+
+- **Free, no account:** one card line per search.
+- **Free account:** multi-card/deck-list search, saved lists, and a private
+  collection with cost basis and manual inventory entry.
+- **Portfolio Analytics (planned):** paid market benchmarking, allocation,
+  and broader Riftbound economy analysis. The data provider and billing flow
+  are intentionally not wired until their APIs, permissions, and hosting costs
+  are validated.
+
+Local development uses email/password accounts with securely hashed passwords
+and per-user SQLite ownership. Google sign-in and email verification are a
+hosting-stage addition because they require OAuth credentials and a public
+callback URL.
+
 ## Collection
 
 **+ Add all to collection** on a plan (or **+ Collection** on a single
@@ -59,6 +76,11 @@ time. `/collection` shows cost basis against today's cheapest in-stock
 price, per line and in total. Cost basis is never recalculated — the gap
 is the point. Lines with nothing in stock anywhere are counted as
 unpriced and excluded from market value rather than guessed at zero.
+
+Signed-in users can create named collection folders for decks, sideboards,
+trades, or individual purchases. Items can be assigned while adding them,
+moved between folders later, and filtered by folder. Deleting a folder never
+deletes its cards; they return to **Unfiled**.
 
 ## Stores (probed 1 Aug 2026)
 
@@ -73,13 +95,41 @@ unpriced and excluded from market value rather than guessed at zero.
 
 - **Cards Central API** (`/api/lgs/search?q=...`): live and working for MTG
   (`Lightning Bolt` returns results) but **returns `[]` for Riftbound
-  queries** (`Yasuo`) → the feed is MTG-filtered as documented. Riftvor uses
+  queries** (`Yasuo`) → the feed is MTG-filtered as documented. Farsight uses
   the fallback: scraping `cardscentral.com/shop/riftbound` (server-rendered,
   HTTP 200, ~296 KB). Re-check the API each set release.
 - **Hideout `products.json`**: open from a residential IP (no Cloudflare
   challenge); `curl_cffi` Chrome-impersonation fallback is wired in anyway.
 
 ## Setup
+
+### Windows + Visual Studio Code
+
+1. Install [Python 3](https://www.python.org/downloads/windows/) and select
+   **Add python.exe to PATH** in the installer.
+2. Open this `riftvor` folder in VS Code. If prompted, install the recommended
+   Python extension.
+3. Open **Terminal → New Terminal** and run:
+
+```powershell
+py -m venv venv
+.\venv\Scripts\python.exe -m pip install -r requirements.txt
+.\venv\Scripts\python.exe app.py
+```
+
+4. Open <http://127.0.0.1:5009> in a browser. Keep the terminal open while
+   using Farsight. Press `Ctrl+C` in that terminal to stop it.
+
+After the one-time setup, press `F5` in VS Code and choose **Run Farsight** to
+start it. Run the tests from the terminal with:
+
+```powershell
+.\venv\Scripts\python.exe -m pytest tests
+```
+
+If `py` is not recognised after installing Python, close and reopen VS Code.
+
+### macOS / Linux
 
 ```bash
 python3 -m venv venv
@@ -109,6 +159,8 @@ basic auth. Optional env vars, all read from the environment or `.env`:
 | `RIFTVOR_AUTH_PASSWORD` | *(unset)* | Set it to require auth on every route except `/api/health`. Unset = off (local single-user default) |
 | `RIFTVOR_HOST` | `127.0.0.1` | Anything non-loopback declares the app publicly reachable; the app then **refuses to start** without `RIFTVOR_AUTH_PASSWORD` |
 | `RIFTVOR_BASE_URL` | `http://127.0.0.1:5009/` | Link written into watchlist alert emails |
+| `RIFTVOR_SECRET_KEY` | auto-generated locally | Flask session signing key; set explicitly when hosted |
+| `RIFTVOR_SESSION_COOKIE_SECURE` | `0` | Set to `1` behind hosted HTTPS |
 
 `POST /api/nightly` runs the heartbeat (sync + watchlist + dormant poll) in
 the web process — Render Cron Jobs get their own filesystem and cannot reach

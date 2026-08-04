@@ -3,18 +3,23 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Riftvor — Riftbound SG price compare</title>
+<title>Farsight — Riftbound market scout</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 </head>
 <body>
 <header>
   <div class="brand">
-    <h1>Riftvor</h1>
-    <span class="sub">Riftbound singles · SG stores · SGD</span>
+    <div class="brand-sigil" aria-hidden="true">FS</div>
+    <div class="brand-copy">
+      <span class="eyebrow">Riftbound market intel</span>
+      <h1>FAR<span>SIGHT</span></h1>
+      <span class="sub">Singapore stores · prices in SGD</span>
+    </div>
   </div>
   <div id="sync-chips" class="sync-chips"></div>
-  <a class="ghost btn-link" href="/collection">Collection</a>
+  <a class="ghost btn-link" href="/collection" data-member-link>Collection</a>
+  <button class="account-btn" data-account-button>Sign in</button>
   <button id="refresh-btn" class="ghost" title="Force refresh (bypass TTL)">⟳ Refresh</button>
 </header>
 
@@ -22,7 +27,8 @@
 
 <main>
   <aside class="panel">
-    <h2>Buy list</h2>
+    <span class="section-code">LOADOUT_01</span>
+    <h2>Build your buy list</h2>
     <p class="hint">One card per line — names or collector numbers
       (<code>OGN-043</code>, <code>2x Yasuo</code>, <code>UNL-T01</code>)</p>
     <div class="ta-wrap">
@@ -32,6 +38,7 @@
     </div>
     <div class="btn-row">
       <button id="search-btn" class="primary">Search</button>
+      <button id="clear-btn" class="ghost" title="Clear the buy list">Clear</button>
       <button id="export-btn" class="ghost" title="Download xlsx">⬇ xlsx</button>
     </div>
 
@@ -40,7 +47,7 @@
       <div id="planPanel"></div>
       <div class="plan-caveat" id="planCaveat"></div>
     </div>
-    <div class="saved">
+    <div class="saved member-only">
       <h3>Saved lists</h3>
       <div class="btn-row">
         <input id="save-name" placeholder="list name">
@@ -55,6 +62,16 @@
   </aside>
 
   <section class="results">
+    <div class="results-intro">
+      <span class="eyebrow">Live shop scan</span>
+      <h2>See beyond the fog.</h2>
+      <p>Scout every listing. Find the value hidden across the market.</p>
+    </div>
+    <div class="tier-strip">
+      <div><span class="tier-dot free"></span><b>Free</b> One card per search</div>
+      <div><span class="tier-dot member"></span><b>Account</b> Multi-card + collection</div>
+      <div class="locked"><span class="tier-dot pro"></span><b>Pro</b> Portfolio analytics · coming later</div>
+    </div>
     <div id="status-line" class="status"></div>
     <div id="unmatched-box" class="unmatched hidden"></div>
     <div class="table-wrap">
@@ -92,6 +109,11 @@
         <span id="plan-modal-sub" class="sub"></span>
       </div>
       <button id="plan-add-all" class="ghost">+ Add all to collection</button>
+      <label class="plan-folder-label member-only">Folder
+        <select id="plan-folder-select">
+          <option value="">Unfiled</option>
+        </select>
+      </label>
       <button id="plan-modal-close" class="ghost">✕</button>
     </div>
     <div id="plan-modal-body" class="plan-body"></div>
@@ -102,6 +124,8 @@
   const STORES = {{ stores | tojson }};
   const TTL_SECONDS = {{ ttl }};
 </script>
+{% include "_auth.html" %}
+<script src="{{ url_for('static', filename='auth.js') }}"></script>
 <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 </html>

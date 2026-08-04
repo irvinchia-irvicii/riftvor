@@ -11,6 +11,39 @@ from filters import _name_matches
 from parsers import parse_buy_list_line
 
 
+def parsed_buy_list(list_text: str) -> list[dict]:
+    return [entry for entry in
+            (parse_buy_list_line(line) for line in list_text.splitlines())
+            if entry]
+
+
+def buy_list_entry_count(list_text: str) -> int:
+    """Number of actual card lines (headers and comments do not count)."""
+    return len(parsed_buy_list(list_text))
+
+
+def resolve_card_query(query: str) -> tuple[str | None, str | None]:
+    """Resolve a manual collection entry to exactly one canonical card key."""
+    query = (query or "").strip()
+    if not query:
+        return None, "Enter a card name or collector number."
+    with db.connect() as conn:
+        direct = conn.execute(
+            "SELECT card_key FROM cards WHERE UPPER(card_key) = UPPER(?)",
+            (query,),
+        ).fetchone()
+        if direct:
+            return direct["card_key"], None
+        rows = conn.execute(
+            "SELECT card_key FROM cards WHERE LOWER(name) = LOWER(?)", (query,)
+        ).fetchall()
+    if len(rows) == 1:
+        return rows[0]["card_key"], None
+    if len(rows) > 1:
+        return None, "That name has multiple printings. Choose a collector number."
+    return None, "Card not found. Try its collector number, such as OGN-043."
+
+
 def _resolve_name(conn: sqlite3.Connection, name: str) -> list[str]:
     """Name → card_keys. Exact (case-insensitive) first, token fallback."""
     rows = conn.execute(
@@ -51,8 +84,7 @@ def _best_listings(conn: sqlite3.Connection, card_key: str) -> dict:
 
 def comparison(list_text: str) -> dict:
     """Buy-list text → comparison rows (grouped nonfoil/foil) + unmatched."""
-    entries = [e for e in
-               (parse_buy_list_line(l) for l in list_text.splitlines()) if e]
+    entries = parsed_buy_list(list_text)
     rows, unmatched = [], []
     with db.connect() as conn:
         for entry in entries:

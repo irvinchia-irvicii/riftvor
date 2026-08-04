@@ -9,10 +9,12 @@ from __future__ import annotations
 import hmac
 import logging
 import time
+from datetime import timedelta
 
-from flask import Flask, jsonify, render_template, request, send_file
+from flask import Flask, jsonify, redirect, render_template, request, send_file
 from flask_httpauth import HTTPBasicAuth
 
+import accounts
 import basket
 import card_art
 import cards_central
@@ -34,6 +36,13 @@ logging.basicConfig(
 log = logging.getLogger("riftvor")
 
 app = Flask(__name__)
+app.config.update(
+    SECRET_KEY=config.SESSION_SECRET,
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=config.SESSION_COOKIE_SECURE,
+    PERMANENT_SESSION_LIFETIME=timedelta(days=30),
+)
 db.init_db()
 
 # ── Auth (HOSTING.md Stage 0 prep #3) ───────────────────────────────────────
@@ -94,6 +103,42 @@ def index():
     )
 
 
+# ── Accounts ────────────────────────────────────────────────────────────────
+
+@app.get("/api/auth/me")
+def api_auth_me():
+    account = accounts.current()
+    return jsonify({"authenticated": bool(account), "account": account})
+
+
+@app.post("/api/auth/signup")
+def api_auth_signup():
+    payload = request.get_json(force=True) or {}
+    account, error = accounts.create(
+        payload.get("email", ""), payload.get("password", "")
+    )
+    if error:
+        return jsonify({"error": error}), 400
+    return jsonify({"ok": True, "account": account}), 201
+
+
+@app.post("/api/auth/login")
+def api_auth_login():
+    payload = request.get_json(force=True) or {}
+    account, error = accounts.authenticate(
+        payload.get("email", ""), payload.get("password", "")
+    )
+    if error:
+        return jsonify({"error": error}), 401
+    return jsonify({"ok": True, "account": account})
+
+
+@app.post("/api/auth/logout")
+def api_auth_logout():
+    accounts.logout()
+    return jsonify({"ok": True})
+
+
 @app.get("/api/health")
 def api_health():
     """Render's health check target — unauthenticated, so it reports
@@ -150,7 +195,14 @@ def _full_comparison(text: str, force: bool = False,
 @app.post("/api/search")
 def api_search():
     payload = request.get_json(force=True) or {}
-    result, summary = _full_comparison(payload.get("list_text", ""),
+    list_text = payload.get("list_text", "")
+    if (matching.buy_list_entry_count(list_text) > 1
+            and accounts.current_user_id() is None):
+        return jsonify({
+            **accounts.ACCOUNT_REQUIRED,
+            "feature": "multi_card_search",
+        }), 403
+    result, summary = _full_comparison(list_text,
                                        force=bool(payload.get("force")))
     result["sync"] = {**_sync_state(), "summary": summary}
     return jsonify(result)
@@ -257,42 +309,136 @@ def api_watchlist_remove(card_key: str, finish: str):
 
 @app.get("/collection")
 def collection_page():
+    if accounts.current_user_id() is None:
+        return redirect("/?gate=collection")
     return render_template("collection.html")
 
 
 @app.get("/api/collection")
+@accounts.required
 def api_collection():
-    return jsonify(collection.list_items())
+    return jsonify(collection.list_items(accounts.current_user_id()))
 
 
 @app.post("/api/collection")
+@accounts.required
 def api_collection_add():
     payload = request.get_json(force=True) or {}
     items = payload.get("items") or []
     if not isinstance(items, list):
         return jsonify({"error": "items must be a list"}), 400
-    added = collection.add_many(items, note=payload.get("note"))
+    added = collection.add_many(
+        accounts.current_user_id(), items, note=payload.get("note")
+    )
     return jsonify({"ok": True, "added": added})
 
 
+@app.post("/api/collection/manual")
+@accounts.required
+def api_collection_manual_add():
+    payload = request.get_json(force=True) or {}
+    card_key, error = matching.resolve_card_query(payload.get("card_query", ""))
+    if error:
+        return jsonify({"error": error}), 400
+    try:
+        qty = max(1, int(payload.get("qty", 1)))
+        unit_paid = float(payload.get("unit_paid"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Quantity and price must be numbers."}), 400
+    if unit_paid < 0:
+        return jsonify({"error": "Price cannot be negative."}), 400
+    item = {
+        "card_key": card_key,
+        "folder_id": payload.get("folder_id"),
+        "finish": payload.get("finish", "nonfoil"),
+        "qty": qty,
+        "unit_paid": unit_paid,
+        "store": (payload.get("store") or "").strip() or None,
+        "acquired_at": payload.get("acquired_at"),
+    }
+    added = collection.add_many(accounts.current_user_id(), [item],
+                                note="Manual inventory entry")
+    return jsonify({"ok": True, "added": added, "card_key": card_key})
+
+
+@app.get("/api/collection/folders")
+@accounts.required
+def api_collection_folders():
+    return jsonify(collection.list_folders(accounts.current_user_id()))
+
+
+@app.post("/api/collection/folders")
+@accounts.required
+def api_collection_folder_create():
+    payload = request.get_json(force=True) or {}
+    folder, error = collection.create_folder(
+        accounts.current_user_id(), payload.get("name", "")
+    )
+    if error:
+        return jsonify({"error": error}), 400
+    return jsonify({"ok": True, "folder": folder}), 201
+
+
+@app.patch("/api/collection/folders/<int:folder_id>")
+@accounts.required
+def api_collection_folder_rename(folder_id: int):
+    payload = request.get_json(force=True) or {}
+    changed, error = collection.rename_folder(
+        accounts.current_user_id(), folder_id, payload.get("name", "")
+    )
+    if not changed:
+        return jsonify({"error": error}), 400 if error else 404
+    return jsonify({"ok": True})
+
+
+@app.delete("/api/collection/folders/<int:folder_id>")
+@accounts.required
+def api_collection_folder_delete(folder_id: int):
+    if not collection.delete_folder(accounts.current_user_id(), folder_id):
+        return jsonify({"error": "Folder not found."}), 404
+    return jsonify({"ok": True})
+
+
+@app.patch("/api/collection/<int:item_id>")
+@accounts.required
+def api_collection_update(item_id: int):
+    payload = request.get_json(force=True) or {}
+    raw_folder = payload.get("folder_id")
+    try:
+        folder_id = int(raw_folder) if raw_folder not in (None, "") else None
+    except (TypeError, ValueError):
+        return jsonify({"error": "Invalid folder."}), 400
+    changed, error = collection.set_item_folder(
+        accounts.current_user_id(), item_id, folder_id
+    )
+    if not changed:
+        return jsonify({"error": error}), 404
+    return jsonify({"ok": True})
+
+
 @app.delete("/api/collection/<int:item_id>")
+@accounts.required
 def api_collection_remove(item_id: int):
-    collection.remove(item_id)
+    collection.remove(accounts.current_user_id(), item_id)
     return jsonify({"ok": True})
 
 
 # ── Saved buy lists ─────────────────────────────────────────────────────────
 
 @app.get("/api/buylists")
+@accounts.required
 def api_buylists():
     with db.connect() as conn:
         rows = conn.execute(
-            "SELECT name, content, created_at FROM buy_lists ORDER BY name"
+            """SELECT name, content, created_at FROM buy_lists
+               WHERE user_id = ? ORDER BY name""",
+            (accounts.current_user_id(),),
         ).fetchall()
     return jsonify([dict(r) for r in rows])
 
 
 @app.post("/api/buylists")
+@accounts.required
 def api_buylists_save():
     payload = request.get_json(force=True) or {}
     name = (payload.get("name") or "").strip()
@@ -301,17 +447,23 @@ def api_buylists_save():
         return jsonify({"error": "name required"}), 400
     with db.connect() as conn:
         conn.execute(
-            """INSERT INTO buy_lists (name, content, created_at)
-               VALUES (?, ?, ?)
-               ON CONFLICT(name) DO UPDATE SET content = excluded.content""",
-            (name, content, time.time()))
+            """INSERT INTO buy_lists (user_id, name, content, created_at)
+               VALUES (?, ?, ?, ?)
+               ON CONFLICT(user_id, name) DO UPDATE SET
+                 content = excluded.content,
+                 created_at = excluded.created_at""",
+            (accounts.current_user_id(), name, content, time.time()))
     return jsonify({"ok": True})
 
 
 @app.delete("/api/buylists/<name>")
+@accounts.required
 def api_buylists_delete(name: str):
     with db.connect() as conn:
-        conn.execute("DELETE FROM buy_lists WHERE name = ?", (name,))
+        conn.execute(
+            "DELETE FROM buy_lists WHERE user_id = ? AND name = ?",
+            (accounts.current_user_id(), name),
+        )
     return jsonify({"ok": True})
 
 
@@ -320,9 +472,15 @@ def api_buylists_delete(name: str):
 @app.post("/api/export")
 def api_export():
     payload = request.get_json(force=True) or {}
+    list_text = payload.get("list_text", "")
+    if (matching.buy_list_entry_count(list_text) > 1
+            and accounts.current_user_id() is None):
+        return jsonify({
+            **accounts.ACCOUNT_REQUIRED,
+            "feature": "multi_card_export",
+        }), 403
     # Carousell is a browse-and-judge panel, not a spreadsheet column.
-    result, _ = _full_comparison(payload.get("list_text", ""),
-                                 with_carousell=False)
+    result, _ = _full_comparison(list_text, with_carousell=False)
     buf = export.comparison_xlsx(result)
     return send_file(
         buf,

@@ -6,6 +6,7 @@ recognisable so fixes stay diff-portable between the two projects.
 from __future__ import annotations
 
 import os
+import secrets
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -56,6 +57,28 @@ BASE_URL = os.environ.get("RIFTVOR_BASE_URL", f"http://127.0.0.1:{PORT}/")
 # was. Set it and every route except /api/health requires credentials.
 AUTH_USER = os.environ.get("RIFTVOR_AUTH_USER", "riftvor")
 AUTH_PASSWORD = os.environ.get("RIFTVOR_AUTH_PASSWORD", "")
+
+# Flask account sessions. Hosted deployments should set RIFTVOR_SECRET_KEY
+# explicitly so sessions survive deploys. Local development gets a stable,
+# randomly-generated key stored under state/ (which is already gitignored).
+SESSION_SECRET_PATH = STATE_DIR / ".session_secret"
+
+
+def _session_secret() -> str:
+    configured = os.environ.get("RIFTVOR_SECRET_KEY", "").strip()
+    if configured:
+        return configured
+    if SESSION_SECRET_PATH.exists():
+        saved = SESSION_SECRET_PATH.read_text(encoding="utf-8").strip()
+        if saved:
+            return saved
+    generated = secrets.token_urlsafe(48)
+    SESSION_SECRET_PATH.write_text(generated, encoding="utf-8")
+    return generated
+
+
+SESSION_SECRET = _session_secret()
+SESSION_COOKIE_SECURE = os.environ.get("RIFTVOR_SESSION_COOKIE_SECURE", "0") == "1"
 
 
 def auth_enabled() -> bool:

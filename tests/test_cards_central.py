@@ -11,7 +11,7 @@ FIXTURE = Path(__file__).parent / "fixtures" / "cc_search_yasuo.html"
 
 
 def test_parse_live_fixture():
-    hits = parse_search_html(FIXTURE.read_text())
+    hits = parse_search_html(FIXTURE.read_text(encoding="utf-8"))
     assert hits, "no results parsed from fixture"
     by_key = {}
     for h in hits:

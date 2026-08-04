@@ -11,6 +11,23 @@ import time
 from config import DB_PATH
 
 SCHEMA = """
+CREATE TABLE IF NOT EXISTS users(
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    email         TEXT NOT NULL COLLATE NOCASE UNIQUE,
+    password_hash TEXT NOT NULL,
+    tier          TEXT NOT NULL DEFAULT 'member',
+    created_at    REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS collection_folders(
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER NOT NULL,
+    name       TEXT NOT NULL,
+    created_at REAL NOT NULL,
+    UNIQUE (user_id, name),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS cards(
     card_key   TEXT PRIMARY KEY,            -- 'OGN-043'
     set_code   TEXT NOT NULL,
@@ -63,9 +80,12 @@ CREATE TABLE IF NOT EXISTS watchlist(
 );
 
 CREATE TABLE IF NOT EXISTS buy_lists(
-    name       TEXT PRIMARY KEY,
+    user_id    INTEGER,
+    name       TEXT NOT NULL,
     content    TEXT NOT NULL,               -- raw textarea text
-    created_at REAL NOT NULL
+    created_at REAL NOT NULL,
+    PRIMARY KEY (user_id, name),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 -- What you actually bought, at what you actually paid. unit_paid is
@@ -73,13 +93,17 @@ CREATE TABLE IF NOT EXISTS buy_lists(
 -- is comparing cost basis against today's market.
 CREATE TABLE IF NOT EXISTS collection(
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id     INTEGER,
+    folder_id   INTEGER,
     card_key    TEXT NOT NULL,
     finish      TEXT NOT NULL DEFAULT 'nonfoil',
     qty         INTEGER NOT NULL DEFAULT 1,
     unit_paid   REAL NOT NULL,
     store       TEXT,
     acquired_at REAL NOT NULL,
-    note        TEXT
+    note        TEXT,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (folder_id) REFERENCES collection_folders(id) ON DELETE SET NULL
 );
 CREATE INDEX IF NOT EXISTS idx_collection_card ON collection(card_key, finish);
 
@@ -110,6 +134,109 @@ def connect() -> sqlite3.Connection:
 def init_db() -> None:
     with connect() as conn:
         conn.executescript(SCHEMA)
+        _migrate_account_ownership(conn)
+
+
+def _columns(conn: sqlite3.Connection, table: str) -> set[str]:
+    return {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
+
+
+def _migrate_account_ownership(conn: sqlite3.Connection) -> None:
+    """Add account ownership without discarding pre-account local data.
+
+    Legacy rows remain unowned until the first account is created, when
+    claim_legacy_data() attaches them to that local owner.
+    """
+    if "user_id" not in _columns(conn, "collection"):
+        conn.execute(
+            "ALTER TABLE collection ADD COLUMN user_id INTEGER REFERENCES users(id)"
+        )
+
+    if "folder_id" not in _columns(conn, "collection"):
+        conn.execute(
+            """ALTER TABLE collection ADD COLUMN folder_id INTEGER
+               REFERENCES collection_folders(id) ON DELETE SET NULL"""
+        )
+
+    collection_fks = conn.execute("PRAGMA foreign_key_list(collection)").fetchall()
+    user_delete_cascades = any(
+        row["table"] == "users" and row["from"] == "user_id"
+        and row["on_delete"].upper() == "CASCADE"
+        for row in collection_fks
+    )
+    if not user_delete_cascades:
+        conn.executescript(
+            """
+            ALTER TABLE collection RENAME TO collection_legacy;
+            CREATE TABLE collection(
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id     INTEGER,
+                folder_id   INTEGER,
+                card_key    TEXT NOT NULL,
+                finish      TEXT NOT NULL DEFAULT 'nonfoil',
+                qty         INTEGER NOT NULL DEFAULT 1,
+                unit_paid   REAL NOT NULL,
+                store       TEXT,
+                acquired_at REAL NOT NULL,
+                note        TEXT,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (folder_id) REFERENCES collection_folders(id)
+                    ON DELETE SET NULL
+            );
+            INSERT INTO collection
+                (id, user_id, folder_id, card_key, finish, qty, unit_paid, store,
+                 acquired_at, note)
+                SELECT id, user_id, folder_id, card_key, finish, qty, unit_paid, store,
+                       acquired_at, note
+                FROM collection_legacy;
+            DROP TABLE collection_legacy;
+            """
+        )
+
+    if "user_id" not in _columns(conn, "buy_lists"):
+        conn.executescript(
+            """
+            ALTER TABLE buy_lists RENAME TO buy_lists_legacy;
+            CREATE TABLE buy_lists(
+                user_id    INTEGER,
+                name       TEXT NOT NULL,
+                content    TEXT NOT NULL,
+                created_at REAL NOT NULL,
+                PRIMARY KEY (user_id, name),
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+            INSERT INTO buy_lists (user_id, name, content, created_at)
+                SELECT NULL, name, content, created_at FROM buy_lists_legacy;
+            DROP TABLE buy_lists_legacy;
+            """
+        )
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_collection_card "
+        "ON collection(card_key, finish)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_collection_user "
+        "ON collection(user_id, acquired_at)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_collection_folder "
+        "ON collection(user_id, folder_id)"
+    )
+
+
+def claim_legacy_data(user_id: int) -> None:
+    """Give pre-account local data to the first account, once."""
+    with connect() as conn:
+        user_count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+        if user_count != 1:
+            return
+        conn.execute(
+            "UPDATE collection SET user_id = ? WHERE user_id IS NULL", (user_id,)
+        )
+        conn.execute(
+            "UPDATE buy_lists SET user_id = ? WHERE user_id IS NULL", (user_id,)
+        )
 
 
 def replace_store_listings(conn: sqlite3.Connection, store: str,

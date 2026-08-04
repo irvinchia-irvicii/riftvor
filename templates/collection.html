@@ -3,39 +3,129 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Riftvor — Collection</title>
+<title>Farsight — Collection</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 <header>
   <div class="brand">
-    <h1>Riftvor</h1>
-    <span class="sub">Collection · cost basis vs market</span>
+    <div class="brand-sigil" aria-hidden="true">FS</div>
+    <div class="brand-copy">
+      <span class="eyebrow">Riftbound market intel</span>
+      <h1>FAR<span>SIGHT</span></h1>
+      <span class="sub">Collection · cost basis vs market</span>
+    </div>
   </div>
+  <button class="account-btn" data-account-button>Account</button>
   <a class="ghost btn-link" href="/" style="margin-left:auto;">← Compare</a>
 </header>
 
 <main class="single">
   <section>
+    <div class="results-intro compact">
+      <span class="eyebrow">Vault telemetry</span>
+      <h2>Your collection.</h2>
+      <p>Cost basis against today's cheapest in-stock market price.</p>
+    </div>
+    <section class="folder-manager panel-static">
+      <div>
+        <span class="section-code">COLLECTION_FOLDERS</span>
+        <h2>Organize your cards</h2>
+        <p class="hint">Decks, sideboards, trades, sealed purchases—name it your way.</p>
+      </div>
+      <div class="folder-controls">
+        <input id="new-folder-name" maxlength="80"
+               placeholder="e.g. Jinx deck · new sideboard cards">
+        <button id="create-folder-btn" class="primary" type="button">Create folder</button>
+        <select id="folder-filter" aria-label="Filter collection folder">
+          <option value="all">All inventory</option>
+          <option value="unfiled">Unfiled</option>
+        </select>
+        <button id="rename-folder-btn" class="ghost" type="button">Rename</button>
+        <button id="delete-folder-btn" class="ghost danger" type="button">Delete</button>
+      </div>
+      <div id="folder-status" class="status"></div>
+    </section>
+    <section class="inventory-add panel-static">
+      <div class="inventory-add-head">
+        <div>
+          <span class="section-code">MANUAL_ENTRY</span>
+          <h2>Add existing inventory</h2>
+          <p class="hint">Add cards you already own, including what you paid.</p>
+        </div>
+      </div>
+      <form id="manual-add-form" class="inventory-form">
+        <label class="wide">Card or collector number
+          <input id="manual-card" name="card_query" list="manual-card-options"
+                 placeholder="OGN-043 or Charm" autocomplete="off" required>
+          <datalist id="manual-card-options"></datalist>
+        </label>
+        <label>Finish
+          <select name="finish">
+            <option value="nonfoil">Non-foil</option>
+            <option value="foil">Foil</option>
+          </select>
+        </label>
+        <label>Folder
+          <select id="manual-folder" name="folder_id">
+            <option value="">Unfiled</option>
+          </select>
+        </label>
+        <label>Quantity
+          <input name="qty" type="number" min="1" value="1" required>
+        </label>
+        <label>Paid each (SGD)
+          <input name="unit_paid" type="number" min="0" step="0.01" required>
+        </label>
+        <label>Store / source
+          <input name="store" placeholder="Optional">
+        </label>
+        <label>Acquired
+          <input name="acquired_date" type="date">
+        </label>
+        <button class="primary" type="submit">Add to collection</button>
+      </form>
+      <div id="manual-add-status" class="status"></div>
+    </section>
     <div class="coll-totals" id="collTotals"></div>
     <div id="collEmpty" class="hint hidden">
       Nothing here yet. Run a search, open a purchase plan, and use
       <b>+ Add all to collection</b> (or a single shop's <b>+ Collection</b>)
       after you buy — prices are snapshotted at what you paid.
     </div>
+    <div id="collFilterEmpty" class="hint hidden">
+      No cards are currently stored in this folder.
+    </div>
     <div class="table-wrap">
       <table id="collTable" class="hidden">
         <thead><tr>
-          <th>Card</th><th>Bought</th><th>Qty</th>
+          <th>Card</th><th>Folder</th><th>Bought</th><th>Qty</th>
           <th>Paid ea.</th><th>Paid</th><th>Market ea.</th>
           <th>Market</th><th>P/L</th><th></th>
         </tr></thead>
         <tbody id="collBody"></tbody>
       </table>
     </div>
+
+    <section class="analytics-lock">
+      <div>
+        <span class="eyebrow">Portfolio Analytics · Pro</span>
+        <h2>See your collection as a market portfolio.</h2>
+        <p>Future analytics will benchmark your holdings against broader
+          Riftbound market prices, set movement, and Singapore liquidity.</p>
+      </div>
+      <div class="analytics-preview" aria-hidden="true">
+        <div><span>Portfolio index</span><b>LOCKED</b></div>
+        <div><span>Market exposure</span><b>— — —</b></div>
+        <div><span>Set allocation</span><b>— — —</b></div>
+      </div>
+      <button class="ghost" disabled>Pro tier · coming later</button>
+    </section>
   </section>
 </main>
 
+{% include "_auth.html" %}
+<script src="{{ url_for('static', filename='auth.js') }}"></script>
 <script src="{{ url_for('static', filename='collection.js') }}"></script>
 </body>
 </html>

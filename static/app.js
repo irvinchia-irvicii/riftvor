@@ -1,4 +1,4 @@
-/* Riftvor front-end — vanilla JS, no build step. */
+/* Farsight front-end — vanilla JS, no build step. */
 "use strict";
 
 const $ = (id) => document.getElementById(id);
@@ -7,8 +7,15 @@ const api = async (path, opts = {}) => {
     headers: { "Content-Type": "application/json" },
     ...opts,
   });
-  if (!resp.ok) throw new Error(`${path} → HTTP ${resp.status}`);
-  return resp.json();
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const error = new Error(data.error || `${path} → HTTP ${resp.status}`);
+    error.code = data.code || null;
+    error.feature = data.feature || null;
+    error.status = resp.status;
+    throw error;
+  }
+  return data;
 };
 
 let lastResult = null;
@@ -221,17 +228,46 @@ function planToCollectionItems(lines) {
 
 async function addToCollection(items, btn, label) {
   try {
+    const folderValue = $("plan-folder-select")?.value || "";
+    const folderId = folderValue ? parseInt(folderValue, 10) : null;
+    const filedItems = items.map((item) => ({ ...item, folder_id: folderId }));
     const r = await api("/api/collection", {
       method: "POST",
-      body: JSON.stringify({ items, note: label || null }),
+      body: JSON.stringify({ items: filedItems, note: label || null }),
     });
     flash(btn, `Added ${r.added} ✓`);
   } catch (err) {
-    flash(btn, "Failed");
+    if (err.code === "account_required" && window.ShopDiffAuth) {
+      window.ShopDiffAuth.requireAccount(
+        "Sign in to save purchases and build your private collection.");
+      flash(btn, "Sign in required");
+    } else {
+      flash(btn, "Failed");
+    }
   }
 }
 
+async function loadPlanFolders() {
+  if (!window.ShopDiffAuth?.state.authenticated) return;
+  try {
+    const folders = await api("/api/collection/folders");
+    const select = $("plan-folder-select");
+    const selected = select.value;
+    select.innerHTML = '<option value="">Unfiled</option>';
+    for (const folder of folders) {
+      const option = document.createElement("option");
+      option.value = folder.id;
+      option.textContent = folder.name;
+      select.appendChild(option);
+    }
+    if ([...select.options].some((option) => option.value === selected)) {
+      select.value = selected;
+    }
+  } catch { /* account state may have changed; collection action handles it */ }
+}
+
 function openPlan(plan, names) {
+  loadPlanFolders();
   $("plan-modal-title").textContent = plan.label;
   $("plan-modal-sub").textContent =
     `${fmt(plan.total)} · ${plan.cards_total} cards · `
@@ -346,6 +382,7 @@ function renderCarousell(items) {
 
 async function doSearch(force = false) {
   const btn = $("search-btn");
+  $("ac-box").classList.add("hidden");
   btn.disabled = true;
   $("status-line").textContent = force
     ? "Syncing all stores (forced)…" : "Checking store freshness…";
@@ -363,7 +400,13 @@ async function doSearch(force = false) {
       `${result.rows.length} rows in ${secs}s ` +
       (synced ? `(synced ${synced} store${synced > 1 ? "s" : ""})` : "(all within TTL)");
   } catch (err) {
-    $("status-line").textContent = "Search failed: " + err.message;
+    if (err.code === "account_required" && window.ShopDiffAuth) {
+      $("status-line").textContent = "Sign in to search more than one card.";
+      window.ShopDiffAuth.requireAccount(
+        "Create a free account to search an entire deck or buy list at once.");
+    } else {
+      $("status-line").textContent = "Search failed: " + err.message;
+    }
   } finally {
     btn.disabled = false;
   }
@@ -391,12 +434,22 @@ $("export-btn").onclick = async () => {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ list_text: $("buylist").value }),
   });
-  if (!resp.ok) { $("status-line").textContent = "Export failed."; return; }
+  if (!resp.ok) {
+    const data = await resp.json().catch(() => ({}));
+    if (data.code === "account_required" && window.ShopDiffAuth) {
+      $("status-line").textContent = "Sign in to export a multi-card list.";
+      window.ShopDiffAuth.requireAccount(
+        "Create a free account to export multi-card comparisons.");
+    } else {
+      $("status-line").textContent = data.error || "Export failed.";
+    }
+    return;
+  }
   const blob = await resp.blob();
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = (resp.headers.get("Content-Disposition") || "")
-    .split("filename=")[1] || "riftvor.xlsx";
+    .split("filename=")[1] || "farsight.xlsx";
   a.click();
   URL.revokeObjectURL(a.href);
 };
@@ -406,6 +459,21 @@ $("export-btn").onclick = async () => {
 const ta = $("buylist");
 const acBox = $("ac-box");
 let acSel = -1;
+
+$("clear-btn").onclick = () => {
+  ta.value = "";
+  lastResult = null;
+  acBox.innerHTML = "";
+  acBox.classList.add("hidden");
+  $("status-line").textContent = "Buy list cleared.";
+  $("cmp-body").innerHTML = "";
+  $("cmp-table").classList.add("hidden");
+  $("unmatched-box").classList.add("hidden");
+  $("carousell-panel").classList.add("hidden");
+  $("plan-box").classList.add("hidden");
+  $("plan-modal").classList.add("hidden");
+  ta.focus();
+};
 
 function currentLine() {
   const pos = ta.selectionStart;
@@ -603,6 +671,8 @@ $("modal").addEventListener("click", (e) => {
     const state = await api("/api/state");
     renderSync(state);
   } catch { /* first load before any sync — chips stay empty */ }
-  loadSavedLists();
+  const authState = window.ShopDiffAuth
+    ? await window.ShopDiffAuth.ready : { authenticated: false };
+  if (authState.authenticated) loadSavedLists();
   loadWatchlist();
 })();

@@ -1,0 +1,61 @@
+<div id="auth-modal" class="modal hidden" role="dialog" aria-modal="true"
+     aria-labelledby="auth-title">
+  <div class="modal-card auth-card">
+    <button id="auth-close" class="ghost auth-close" aria-label="Close">✕</button>
+
+    <div id="auth-guest-view">
+      <span class="eyebrow">Free account unlock</span>
+      <h2 id="auth-title">Enter the backroom.</h2>
+      <p id="auth-reason" class="auth-reason">
+        Sign in for multi-card search, saved lists, and your private collection.
+      </p>
+
+      <div class="auth-perks">
+        <span>✓ Multi-card search</span>
+        <span>✓ Private inventory</span>
+        <span>✓ Cost-basis dashboard</span>
+      </div>
+
+      <div class="auth-tabs" role="tablist">
+        <button id="auth-login-tab" class="auth-tab active" type="button">Sign in</button>
+        <button id="auth-signup-tab" class="auth-tab" type="button">Create account</button>
+      </div>
+
+      <form id="auth-login-form" class="auth-form">
+        <label>Email
+          <input name="email" type="email" autocomplete="email" required>
+        </label>
+        <label>Password
+          <input name="password" type="password" autocomplete="current-password" required>
+        </label>
+        <button class="primary" type="submit">Sign in</button>
+      </form>
+
+      <form id="auth-signup-form" class="auth-form hidden">
+        <label>Email
+          <input name="email" type="email" autocomplete="email" required>
+        </label>
+        <label>Password <span>8 characters minimum</span>
+          <input name="password" type="password" autocomplete="new-password"
+                 minlength="8" maxlength="128" required>
+        </label>
+        <button class="primary" type="submit">Create free account</button>
+      </form>
+      <div id="auth-error" class="auth-error hidden"></div>
+      <p class="auth-note">Local development account. Google sign-in and email
+        verification will be added when Farsight is hosted.</p>
+    </div>
+
+    <div id="auth-member-view" class="hidden">
+      <span class="eyebrow">Account online</span>
+      <h2>Welcome back.</h2>
+      <p class="auth-email" data-member-email></p>
+      <div class="auth-perks">
+        <span>✓ Multi-card search active</span>
+        <span>✓ Collection active</span>
+        <span class="locked">◇ Portfolio Analytics · locked</span>
+      </div>
+      <button id="auth-logout" class="ghost" type="button">Sign out</button>
+    </div>
+  </div>
+</div>
