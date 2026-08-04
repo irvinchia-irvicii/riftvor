@@ -1,4 +1,4 @@
-/* Farsight collection view — what you paid vs what it's worth now. */
+/* Soraka's Wish collection view — what you paid vs what it's worth now. */
 "use strict";
 
 const $ = (id) => document.getElementById(id);
@@ -211,7 +211,7 @@ $("delete-folder-btn").addEventListener("click", async () => {
   await load();
 });
 
-/* Manual entry for cards the user already owned before using Farsight. */
+/* Manual entry for cards the user already owned before using Soraka's Wish. */
 const manualForm = $("manual-add-form");
 const manualCard = $("manual-card");
 const manualOptions = $("manual-card-options");

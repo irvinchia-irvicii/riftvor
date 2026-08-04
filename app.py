@@ -25,6 +25,7 @@ import db
 import export
 import matching
 import price_history
+import portfolio
 import sync
 import watchlist
 
@@ -311,7 +312,29 @@ def api_watchlist_remove(card_key: str, finish: str):
 def collection_page():
     if accounts.current_user_id() is None:
         return redirect("/?gate=collection")
-    return render_template("collection.html")
+    return render_template("collection.html", account=accounts.current())
+
+
+@app.get("/portfolio")
+def portfolio_page():
+    account = accounts.current()
+    if account is None:
+        return redirect("/?gate=portfolio")
+    if not account["entitlements"]["portfolio_analytics"]:
+        return redirect("/collection?gate=portfolio")
+    return render_template("portfolio.html", account=account)
+
+
+@app.get("/api/portfolio")
+@accounts.required
+def api_portfolio():
+    account = accounts.current()
+    if not account["entitlements"]["portfolio_analytics"]:
+        return jsonify({
+            "error": "Portfolio Analytics is not included with this account yet.",
+            "code": "portfolio_required",
+        }), 403
+    return jsonify(portfolio.build(accounts.current_user_id()))
 
 
 @app.get("/api/collection")

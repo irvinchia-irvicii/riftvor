@@ -1,4 +1,4 @@
-/* Farsight front-end — vanilla JS, no build step. */
+/* Soraka's Wish front-end — vanilla JS, no build step. */
 "use strict";
 
 const $ = (id) => document.getElementById(id);

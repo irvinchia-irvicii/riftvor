@@ -224,6 +224,19 @@ def _migrate_account_ownership(conn: sqlite3.Connection) -> None:
         "ON collection(user_id, folder_id)"
     )
 
+    # This is a local founder preview: the first account on an existing
+    # installation gets portfolio access. New sign-ups remain free members.
+    # We deliberately choose by id and never inspect or hard-code private email.
+    has_preview = conn.execute(
+        "SELECT 1 FROM users WHERE tier IN ('founder', 'pro') LIMIT 1"
+    ).fetchone()
+    if not has_preview:
+        first = conn.execute("SELECT id FROM users ORDER BY id LIMIT 1").fetchone()
+        if first:
+            conn.execute(
+                "UPDATE users SET tier = 'founder' WHERE id = ?", (first["id"],)
+            )
+
 
 def claim_legacy_data(user_id: int) -> None:
     """Give pre-account local data to the first account, once."""

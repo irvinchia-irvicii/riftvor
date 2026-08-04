@@ -109,3 +109,58 @@ def test_manual_inventory_is_private(client):
         "email": "first@example.com", "password": "eightchars",
     })
     assert len(client.get("/api/collection").json["items"]) == 1
+
+
+def test_portfolio_is_gated_then_uses_observed_shop_prices(client):
+    signup(client)
+    assert client.get("/api/portfolio").status_code == 403
+
+    with db.connect() as conn:
+        user_id = conn.execute(
+            "SELECT id FROM users WHERE email = 'player@example.com'"
+        ).fetchone()["id"]
+        conn.execute("UPDATE users SET tier = 'founder' WHERE id = ?", (user_id,))
+        conn.execute(
+            """INSERT INTO collection
+               (user_id, card_key, finish, qty, unit_paid, acquired_at)
+               VALUES (?, 'OGN-043', 'nonfoil', 2, 10, ?)""",
+            (user_id, time.time()),
+        )
+        now = time.time()
+        for store, price in (("hideout", 12), ("goat", 16)):
+            conn.execute(
+                """INSERT INTO listings
+                   (store, card_key, title_raw, url, price, finish, in_stock, synced_at)
+                   VALUES (?, 'OGN-043', 'Charm', ?, ?, 'nonfoil', 1, ?)""",
+                (store, f"https://example.test/{store}", price, now),
+            )
+        conn.execute(
+            """INSERT INTO price_history
+               (store, card_key, finish, price, in_stock, seen_at)
+               VALUES ('hideout', 'OGN-043', 'nonfoil', 11, 1, ?)""",
+            (now - 7 * 86400,),
+        )
+
+    response = client.get("/api/portfolio")
+    assert response.status_code == 200
+    data = response.json
+    assert data["summary"]["paid"] == 20
+    assert data["summary"]["value"] == 28
+    assert data["summary"]["delta"] == 8
+    assert data["summary"]["coverage_pct"] == 100
+    assert data["positions"][0]["shops"] == 2
+    assert data["trend_30d"]["status"] == "ready"
+
+
+def test_existing_first_account_receives_founder_preview(tmp_path, monkeypatch):
+    monkeypatch.setattr(db, "DB_PATH", tmp_path / "migration.db")
+    db.init_db()
+    with db.connect() as conn:
+        conn.execute(
+            """INSERT INTO users (email, password_hash, tier, created_at)
+               VALUES ('first@example.com', 'hash', 'member', 1)"""
+        )
+    db.init_db()
+    with db.connect() as conn:
+        tier = conn.execute("SELECT tier FROM users").fetchone()["tier"]
+    assert tier == "founder"

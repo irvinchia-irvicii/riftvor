@@ -3,27 +3,27 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Farsight — Collection</title>
+<title>Soraka's Wish — Collection</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 <header>
   <div class="brand">
-    <div class="brand-sigil" aria-hidden="true">FS</div>
+    <img class="brand-mascot" src="{{ url_for('static', filename='wish-sprite.png') }}" alt="">
     <div class="brand-copy">
-      <span class="eyebrow">Riftbound market intel</span>
-      <h1>FAR<span>SIGHT</span></h1>
+      <span class="eyebrow">Your Riftbound wishbook</span>
+      <h1>SORAKA'S <span>WISH</span></h1>
       <span class="sub">Collection · cost basis vs market</span>
     </div>
   </div>
   <button class="account-btn" data-account-button>Account</button>
-  <a class="ghost btn-link" href="/" style="margin-left:auto;">← Compare</a>
+  <a class="ghost btn-link" href="/" style="margin-left:auto;">← Search</a>
 </header>
 
 <main class="single">
   <section>
     <div class="results-intro compact">
-      <span class="eyebrow">Vault telemetry</span>
+      <span class="eyebrow">Your wishbook</span>
       <h2>Your collection.</h2>
       <p>Cost basis against today's cheapest in-stock market price.</p>
     </div>
@@ -107,24 +107,29 @@
       </table>
     </div>
 
-    <section class="analytics-lock">
+    <section class="analytics-lock {% if account.entitlements.portfolio_analytics %}analytics-open{% endif %}">
       <div>
-        <span class="eyebrow">Portfolio Analytics · Pro</span>
+        <span class="eyebrow">Portfolio Analytics · {% if account.entitlements.portfolio_analytics %}Founder preview{% else %}Pro{% endif %}</span>
         <h2>See your collection as a market portfolio.</h2>
-        <p>Future analytics will benchmark your holdings against broader
-          Riftbound market prices, set movement, and Singapore liquidity.</p>
+        <p>Turn your purchases into a portfolio with market value, gains and
+          losses, allocation, price coverage, and source transparency.</p>
       </div>
       <div class="analytics-preview" aria-hidden="true">
-        <div><span>Portfolio index</span><b>LOCKED</b></div>
-        <div><span>Market exposure</span><b>— — —</b></div>
-        <div><span>Set allocation</span><b>— — —</b></div>
+        <div><span>Portfolio value</span><b>{% if account.entitlements.portfolio_analytics %}READY{% else %}LOCKED{% endif %}</b></div>
+        <div><span>Market coverage</span><b>LIVE SHOPS</b></div>
+        <div><span>Set allocation</span><b>SGD</b></div>
       </div>
+      {% if account.entitlements.portfolio_analytics %}
+      <a class="primary btn-link" href="/portfolio">Open portfolio</a>
+      {% else %}
       <button class="ghost" disabled>Pro tier · coming later</button>
+      {% endif %}
     </section>
   </section>
 </main>
 
 {% include "_auth.html" %}
+<footer class="site-footer">Soraka's Wish isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing Riot Games properties. Riot Games and all associated properties are trademarks or registered trademarks of Riot Games, Inc.</footer>
 <script src="{{ url_for('static', filename='auth.js') }}"></script>
 <script src="{{ url_for('static', filename='collection.js') }}"></script>
 </body>
