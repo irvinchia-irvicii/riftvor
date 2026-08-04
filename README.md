@@ -1,6 +1,6 @@
-# Farsight
+# Soraka's Wish
 
-*See beyond the fog — Riftbound market intelligence for Singapore.*
+*Make a wish list. Let the market answer.*
 
 Riftbound (League of Legends TCG) singles price scraper for the Singapore
 market. Paste a buy list → one SGD price-comparison table across every SG
@@ -58,10 +58,14 @@ pasting into a note or a message to the shop.
 - **Free, no account:** one card line per search.
 - **Free account:** multi-card/deck-list search, saved lists, and a private
   collection with cost basis and manual inventory entry.
-- **Portfolio Analytics (planned):** paid market benchmarking, allocation,
-  and broader Riftbound economy analysis. The data provider and billing flow
-  are intentionally not wired until their APIs, permissions, and hosting costs
-  are validated.
+- **Founder preview:** the first account on an existing local installation gets
+  Portfolio Analytics while the feature is being developed. New accounts stay
+  on the free-account tier.
+- **Portfolio Analytics:** median connected-shop reference value, gains/losses,
+  price coverage, set and folder allocation, concentration, source comparison,
+  and a 30-day pulse once enough history has accumulated. Bilgewater Market
+  and TCGplayer are labelled as unconnected until an authorised feed is in
+  place; the app never invents their prices.
 
 Local development uses email/password accounts with securely hashed passwords
 and per-user SQLite ownership. Google sign-in and email verification are a
@@ -95,7 +99,7 @@ deletes its cards; they return to **Unfiled**.
 
 - **Cards Central API** (`/api/lgs/search?q=...`): live and working for MTG
   (`Lightning Bolt` returns results) but **returns `[]` for Riftbound
-  queries** (`Yasuo`) → the feed is MTG-filtered as documented. Farsight uses
+  queries** (`Yasuo`) → the feed is MTG-filtered as documented. Soraka's Wish uses
   the fallback: scraping `cardscentral.com/shop/riftbound` (server-rendered,
   HTTP 200, ~296 KB). Re-check the API each set release.
 - **Hideout `products.json`**: open from a residential IP (no Cloudflare
@@ -118,9 +122,9 @@ py -m venv venv
 ```
 
 4. Open <http://127.0.0.1:5009> in a browser. Keep the terminal open while
-   using Farsight. Press `Ctrl+C` in that terminal to stop it.
+   using Soraka's Wish. Press `Ctrl+C` in that terminal to stop it.
 
-After the one-time setup, press `F5` in VS Code and choose **Run Farsight** to
+After the one-time setup, press `F5` in VS Code and choose **Run Soraka's Wish** to
 start it. Run the tests from the terminal with:
 
 ```powershell
@@ -128,6 +132,18 @@ start it. Run the tests from the terminal with:
 ```
 
 If `py` is not recognised after installing Python, close and reopen VS Code.
+
+## Working-title and fan-project notice
+
+“Soraka's Wish” is an existing Riot card/ability name, so this is a local
+working title—not a trademark clearance. Before a public or paid launch, get
+legal advice and Riot approval or choose a fully original product name. The
+logo and background in this repository are original generated artwork and do
+not depict Soraka or copy Riot artwork.
+
+Soraka's Wish is a fan project and is not endorsed by Riot Games. Riot Games
+and associated properties are trademarks or registered trademarks of Riot
+Games, Inc.
 
 ### macOS / Linux
 

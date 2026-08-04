@@ -1,4 +1,4 @@
-"""Local Shop Diff accounts and session helpers.
+"""Local Soraka's Wish accounts and session helpers.
 
 Email/password is the development-stage identity provider. The user table and
 session boundary are intentionally provider-neutral so hosted Google OAuth can
@@ -35,7 +35,7 @@ def public_account(row) -> dict:
         "entitlements": {
             "multi_card_search": True,
             "collection": True,
-            "portfolio_analytics": row["tier"] == "pro",
+            "portfolio_analytics": row["tier"] in ("founder", "pro"),
         },
     }
 

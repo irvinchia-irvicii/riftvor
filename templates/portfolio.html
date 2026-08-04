@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Soraka's Wish — Portfolio</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header>
+  <div class="brand">
+    <img class="brand-mascot" src="{{ url_for('static', filename='wish-sprite.png') }}" alt="">
+    <div class="brand-copy">
+      <span class="eyebrow">Founder preview</span>
+      <h1>SORAKA'S <span>WISH</span></h1>
+      <span class="sub">Portfolio · market view in SGD</span>
+    </div>
+  </div>
+  <button class="account-btn" data-account-button>Account</button>
+  <a class="ghost btn-link" href="/collection" style="margin-left:auto;">Collection</a>
+  <a class="ghost btn-link" href="/">Search</a>
+</header>
+
+<main class="single portfolio-page">
+  <section>
+    <div class="results-intro compact portfolio-hero">
+      <span class="eyebrow">Your cards, seen as a whole</span>
+      <h2>Portfolio constellation.</h2>
+      <p>Market value, gains and allocation—grounded in prices the app has actually observed.</p>
+      <span id="portfolio-asof" class="asof"></span>
+    </div>
+
+    <div id="portfolio-loading" class="portfolio-loading">Gathering your portfolio…</div>
+    <div id="portfolio-empty" class="panel-static hidden">
+      <h2>Your constellation is waiting.</h2>
+      <p class="hint">Add cards and their purchase prices to your collection, then come back here.</p>
+      <a class="primary btn-link" href="/collection">Add collection cards</a>
+    </div>
+
+    <div id="portfolio-content" class="hidden">
+      <section id="portfolio-summary" class="portfolio-summary"></section>
+
+      <section class="portfolio-grid">
+        <article class="panel-static portfolio-panel">
+          <span class="section-code">30_DAY_PULSE</span>
+          <h2>Market movement</h2>
+          <div id="portfolio-trend"></div>
+        </article>
+        <article class="panel-static portfolio-panel">
+          <span class="section-code">CONCENTRATION</span>
+          <h2>Portfolio balance</h2>
+          <div id="portfolio-balance"></div>
+        </article>
+      </section>
+
+      <section class="portfolio-grid">
+        <article class="panel-static portfolio-panel">
+          <span class="section-code">SET_ALLOCATION</span>
+          <h2>By set</h2>
+          <div id="portfolio-sets" class="allocation-list"></div>
+        </article>
+        <article class="panel-static portfolio-panel">
+          <span class="section-code">FOLDER_ALLOCATION</span>
+          <h2>By deck or folder</h2>
+          <div id="portfolio-folders" class="allocation-list"></div>
+        </article>
+      </section>
+
+      <section class="panel-static portfolio-panel">
+        <span class="section-code">HOLDINGS</span>
+        <h2>Your positions</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Card</th><th>Qty</th><th>Cost</th><th>Reference</th><th>P/L</th><th>Coverage</th></tr></thead>
+            <tbody id="portfolio-positions"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel-static portfolio-panel">
+        <span class="section-code">PRICE_SOURCES</span>
+        <h2>Where the numbers come from</h2>
+        <p class="hint">Connected sources contribute values. Reference-only sources never do.</p>
+        <div id="portfolio-sources" class="source-list"></div>
+      </section>
+
+      <p id="portfolio-method" class="method-note"></p>
+    </div>
+  </section>
+</main>
+
+{% include "_auth.html" %}
+<footer class="site-footer">Soraka's Wish is a fan project and is not endorsed by Riot Games. Riot Games and associated properties are trademarks or registered trademarks of Riot Games, Inc.</footer>
+<script src="{{ url_for('static', filename='auth.js') }}"></script>
+<script src="{{ url_for('static', filename='portfolio.js') }}"></script>
+</body>
+</html>
