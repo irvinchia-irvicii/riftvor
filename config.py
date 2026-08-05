@@ -99,7 +99,10 @@ EXTERNAL_PRICE_TTL_SECONDS = int(
 # Hosted review builds can use the bundled public catalogue snapshot. This
 # keeps search useful on platforms whose datacenter IPs are refused by the
 # shopfronts, without ever bundling accounts, collections, or private data.
-CATALOG_MODE = os.environ.get("RIFTVOR_CATALOG_MODE", "live").strip().lower()
+_DEFAULT_CATALOG_MODE = "snapshot" if os.environ.get("RENDER") else "live"
+CATALOG_MODE = os.environ.get(
+    "RIFTVOR_CATALOG_MODE", _DEFAULT_CATALOG_MODE
+).strip().lower()
 SNAPSHOT_MODE = CATALOG_MODE == "snapshot"
 
 # Pacing. The defaults are the residential ones and are deliberately
