@@ -127,6 +127,11 @@ def retailers_page():
     )
 
 
+@app.get("/retailers/sample-newsletter")
+def retailer_newsletter_sample():
+    return render_template("retailer_newsletter_sample.html")
+
+
 @app.post("/api/retailers/subscribe")
 def api_retailer_subscribe():
     payload = request.get_json(force=True) or {}
