@@ -87,6 +87,9 @@ def auth_enabled() -> bool:
 # ── Politeness (§10 of the PRD) ─────────────────────────────────────────────
 USER_AGENT = "Riftvor/1.0 personal price tracker"
 TTL_SECONDS = int(os.environ.get("RIFTVOR_TTL_SECONDS", 300))
+EXTERNAL_PRICE_TTL_SECONDS = int(
+    os.environ.get("RIFTVOR_EXTERNAL_PRICE_TTL_SECONDS", 21600)
+)
 
 # Pacing. The defaults are the residential ones and are deliberately
 # unchanged — a datacenter IP's problem is no reason to slow down the Mac.

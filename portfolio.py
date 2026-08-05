@@ -1,8 +1,8 @@
 """Portfolio analytics built only from prices the app has actually observed.
 
-The dashboard uses median in-stock asking prices across connected Singapore
-shops as its reference value. It does not guess a value for unpriced cards and
-does not present marketplace asking prices as guaranteed sale proceeds.
+TCGplayer prices supplied by Riftbound.gg are the primary benchmark, converted
+from USD to SGD. Median in-stock asks across connected Singapore shops are kept
+beside that benchmark. Missing prices are never guessed.
 """
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ import time
 
 import config
 import db
+import riftbound_gg
 
 
 def _money(value: float) -> float:
@@ -30,7 +31,9 @@ def _label_set(code: str | None) -> str:
     return known[0] if known else code
 
 
-def build(user_id: int) -> dict:
+def build(user_id: int, refresh_external: bool = False) -> dict:
+    external_state = (riftbound_gg.ensure_fresh() if refresh_external
+                      else riftbound_gg.cached_state())
     cutoff = time.time() - 30 * 86400
     with db.connect() as conn:
         holdings = conn.execute(
@@ -65,6 +68,12 @@ def build(user_id: int) -> dict:
                WHERE in_stock = 1 AND seen_at >= ?""",
             (cutoff,),
         ).fetchall()
+        external_rows = conn.execute(
+            """SELECT card_key, finish, native_price, native_currency,
+                      sgd_price, delta_1d_sgd, delta_7d_sgd, url, synced_at
+               FROM external_prices WHERE source = ?""",
+            (riftbound_gg.SOURCE,),
+        ).fetchall()
 
     store_names = {s["key"]: s["name"] for s in config.STORES}
     prices: dict[tuple[str, str], dict[str, float]] = defaultdict(dict)
@@ -72,14 +81,21 @@ def build(user_id: int) -> dict:
     for row in listing_rows:
         prices[(row["card_key"], row["finish"])][row["store"]] = row["price"]
         newest_sync = max(newest_sync or 0, row["synced_at"] or 0)
+    benchmarks = {
+        (row["card_key"], row["finish"]): row for row in external_rows
+    }
 
     positions = []
     set_totals: dict[str, dict[str, float]] = defaultdict(
         lambda: {"paid": 0.0, "value": 0.0, "cards": 0, "priced_cards": 0}
     )
     price_for: dict[tuple[str, str], float] = {}
-    total_paid = total_value = 0.0
-    total_cards = priced_cards = 0
+    sg_price_for: dict[tuple[str, str], float] = {}
+    total_paid = total_value = benchmark_paid = 0.0
+    sg_total_value = 0.0
+    comparison_sg = comparison_benchmark = 0.0
+    comparison_cards = 0
+    total_cards = priced_cards = sg_priced_cards = 0
     store_coverage: dict[str, dict[str, float]] = defaultdict(
         lambda: {"value": 0.0, "cards": 0, "lines": 0}
     )
@@ -87,17 +103,31 @@ def build(user_id: int) -> dict:
     for row in holdings:
         key = (row["card_key"], row["finish"])
         observed = prices.get(key, {})
-        unit_value = median(observed.values()) if observed else None
+        sg_unit_value = median(observed.values()) if observed else None
+        benchmark = benchmarks.get(key)
+        unit_value = benchmark["sgd_price"] if benchmark else None
         if unit_value is not None:
             price_for[key] = unit_value
+        if sg_unit_value is not None:
+            sg_price_for[key] = sg_unit_value
         paid = float(row["paid"])
         value = unit_value * row["qty"] if unit_value is not None else None
+        sg_value = (sg_unit_value * row["qty"]
+                    if sg_unit_value is not None else None)
         delta = value - paid if value is not None else None
         total_paid += paid
         total_cards += row["qty"]
         if value is not None:
             total_value += value
+            benchmark_paid += paid
             priced_cards += row["qty"]
+        if sg_value is not None:
+            sg_total_value += sg_value
+            sg_priced_cards += row["qty"]
+        if value is not None and sg_value is not None:
+            comparison_benchmark += value
+            comparison_sg += sg_value
+            comparison_cards += row["qty"]
         set_name = _label_set(row["set_code"])
         bucket = set_totals[set_name]
         bucket["paid"] += paid
@@ -120,6 +150,22 @@ def build(user_id: int) -> dict:
             "value": _money(value) if value is not None else None,
             "delta": _money(delta) if delta is not None else None,
             "return_pct": _pct(delta, paid) if delta is not None else None,
+            "native_unit_value": (_money(benchmark["native_price"])
+                                  if benchmark else None),
+            "native_currency": benchmark["native_currency"] if benchmark else None,
+            "benchmark_url": benchmark["url"] if benchmark else None,
+            "delta_1d": (_money(benchmark["delta_1d_sgd"] * row["qty"])
+                         if benchmark and benchmark["delta_1d_sgd"] is not None
+                         else None),
+            "delta_7d": (_money(benchmark["delta_7d_sgd"] * row["qty"])
+                         if benchmark and benchmark["delta_7d_sgd"] is not None
+                         else None),
+            "sg_unit_value": (_money(sg_unit_value)
+                              if sg_unit_value is not None else None),
+            "sg_value": _money(sg_value) if sg_value is not None else None,
+            "sg_vs_benchmark": (_money(sg_value - value)
+                                if sg_value is not None and value is not None
+                                else None),
             "shops": len(observed),
         })
 
@@ -154,8 +200,7 @@ def build(user_id: int) -> dict:
             })
         return sorted(result, key=lambda item: item["value"], reverse=True)
 
-    # Compare today's reference value with the oldest available daily median
-    # in the last 30 days, using only positions that have both endpoints.
+    # The existing 30-day pulse remains the local Singapore-shop series.
     daily: dict[tuple[str, str, str], list[float]] = defaultdict(list)
     for row in history_rows:
         day = datetime.fromtimestamp(row["seen_at"], timezone.utc).date().isoformat()
@@ -167,17 +212,33 @@ def build(user_id: int) -> dict:
         by_key[(card_key, finish)].append((day, median(values)))
     qty_by_key = {(r["card_key"], r["finish"]): r["qty"] for r in holdings}
     for key, points in by_key.items():
-        if key not in price_for:
+        if key not in sg_price_for:
             continue
         points.sort()
         qty = qty_by_key.get(key, 0)
         if not qty:
             continue
         start_value += points[0][1] * qty
-        end_value += price_for[key] * qty
+        end_value += sg_price_for[key] * qty
         trend_cards += qty
 
-    source_rows = []
+    benchmark_age = external_state.get("synced_at")
+    benchmark_detail = (
+        f"TCGplayer USD via Riftbound.gg · converted at USD/SGD "
+        f"{external_state['fx_rate']:.4f}"
+        if external_state.get("fx_rate") else external_state.get("message")
+    )
+    if external_state.get("using_stale"):
+        benchmark_detail += " · using last successful snapshot"
+    source_rows = [{
+        "name": "TCGplayer via Riftbound.gg",
+        "status": "connected" if external_rows else "not_connected",
+        "detail": benchmark_detail,
+        "url": "https://riftbound.gg/prices/",
+        "value": _money(total_value) if external_rows else None,
+        "coverage_pct": _pct(priced_cards, total_cards) or 0,
+        "synced_at": benchmark_age,
+    }]
     for store, values in sorted(store_coverage.items(),
                                 key=lambda item: item[1]["value"], reverse=True):
         source_rows.append({
@@ -194,9 +255,6 @@ def build(user_id: int) -> dict:
         {"name": "Bilgewater Market", "status": "not_connected",
          "detail": "Reference marketplace found; an authorised data feed is still needed.",
          "url": "https://bilgewatermarket.com/cards"},
-        {"name": "TCGplayer", "status": "not_connected",
-         "detail": "Riftbound is listed, but this app needs an approved feed/API before importing prices.",
-         "url": "https://www.tcgplayer.com/search/riftbound-tcg/product"},
         {"name": "Card Kingdom", "status": "unavailable",
          "detail": "No verified Riftbound singles catalogue was found, so it is excluded."},
     ])
@@ -207,12 +265,26 @@ def build(user_id: int) -> dict:
             "positions": len(positions),
             "paid": _money(total_paid),
             "value": _money(total_value),
-            "delta": _money(total_value - total_paid),
-            "return_pct": _pct(total_value - total_paid, total_paid),
+            "priced_cost": _money(benchmark_paid),
+            "delta": _money(total_value - benchmark_paid),
+            "return_pct": _pct(total_value - benchmark_paid, benchmark_paid),
             "priced_cards": priced_cards,
             "coverage_pct": _pct(priced_cards, total_cards) or 0,
+            "sg_value": _money(sg_total_value),
+            "sg_priced_cards": sg_priced_cards,
+            "sg_coverage_pct": _pct(sg_priced_cards, total_cards) or 0,
+            "comparison_cards": comparison_cards,
+            "comparison_benchmark": _money(comparison_benchmark),
+            "comparison_sg": _money(comparison_sg),
+            "sg_vs_benchmark": _money(comparison_sg - comparison_benchmark),
+            "sg_vs_benchmark_pct": _pct(
+                comparison_sg - comparison_benchmark, comparison_benchmark
+            ),
             "top_holding_pct": _pct(top_value, total_value) or 0,
             "as_of": newest_sync,
+            "benchmark_as_of": benchmark_age,
+            "fx_rate": external_state.get("fx_rate"),
+            "fx_as_of": external_state.get("fx_as_of"),
         },
         "positions": positions,
         "top_gainers": sorted(
@@ -234,9 +306,12 @@ def build(user_id: int) -> dict:
         },
         "sources": source_rows,
         "methodology": (
-            "Reference value is the median of each card's cheapest current "
-            "in-stock asking price at connected Singapore shops. Missing prices "
-            "are not estimated. Values are in SGD and are not sale proceeds or "
-            "financial advice."
+            "Primary reference value uses TCGplayer USD prices supplied by "
+            "Riftbound.gg and converted to SGD with the displayed daily FX rate. "
+            "The Singapore comparison is the median of each card's cheapest "
+            "current in-stock ask at connected local shops. Cost-basis returns "
+            "use only cards covered by the primary benchmark. Missing prices are "
+            "not estimated. These are market references, not guaranteed sale "
+            "proceeds or financial advice."
         ),
     }

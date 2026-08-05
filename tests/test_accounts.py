@@ -140,15 +140,31 @@ def test_portfolio_is_gated_then_uses_observed_shop_prices(client):
                VALUES ('hideout', 'OGN-043', 'nonfoil', 11, 1, ?)""",
             (now - 7 * 86400,),
         )
+        conn.execute(
+            """INSERT INTO external_prices
+               (source, card_key, finish, native_price, native_currency,
+                sgd_price, delta_1d_sgd, delta_7d_sgd, url, synced_at)
+               VALUES ('riftbound_gg_tcgplayer', 'OGN-043', 'nonfoil', 10,
+                       'USD', 13, 0.1, 0.5, 'https://riftbound.gg/cards/charm/', ?)""",
+            (now,),
+        )
+        conn.execute(
+            """INSERT INTO fx_rates (base, quote, rate, as_of, synced_at)
+               VALUES ('USD', 'SGD', 1.3, '2026-08-04', ?)""",
+            (now,),
+        )
 
     response = client.get("/api/portfolio")
     assert response.status_code == 200
     data = response.json
     assert data["summary"]["paid"] == 20
-    assert data["summary"]["value"] == 28
-    assert data["summary"]["delta"] == 8
+    assert data["summary"]["value"] == 26
+    assert data["summary"]["sg_value"] == 28
+    assert data["summary"]["delta"] == 6
+    assert data["summary"]["sg_vs_benchmark"] == 2
     assert data["summary"]["coverage_pct"] == 100
     assert data["positions"][0]["shops"] == 2
+    assert data["positions"][0]["native_currency"] == "USD"
     assert data["trend_30d"]["status"] == "ready"
 
 

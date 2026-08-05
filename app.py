@@ -334,7 +334,9 @@ def api_portfolio():
             "error": "Portfolio Analytics is not included with this account yet.",
             "code": "portfolio_required",
         }), 403
-    return jsonify(portfolio.build(accounts.current_user_id()))
+    return jsonify(portfolio.build(
+        accounts.current_user_id(), refresh_external=not app.testing
+    ))
 
 
 @app.get("/api/collection")

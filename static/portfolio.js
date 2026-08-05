@@ -32,14 +32,17 @@
     }
     $("portfolio-content").classList.remove("hidden");
     $("portfolio-summary").innerHTML = [
-      stat("Reference value", money(s.value), `${s.priced_cards} of ${s.cards} cards priced`),
+      stat("TCGplayer benchmark", money(s.value), `${s.priced_cards} of ${s.cards} cards · via Riftbound.gg`),
+      stat("Singapore shop median", money(s.sg_value), `${s.sg_priced_cards} of ${s.cards} cards priced`),
       stat("Cost basis", money(s.paid), `${s.positions} unique positions`),
-      stat("Unrealised P/L", signed(s.delta), pct(s.return_pct), tone(s.delta)),
-      stat("Price coverage", `${s.coverage_pct.toFixed(1)}%`, "Unpriced cards are not estimated"),
+      stat("Benchmark P/L", signed(s.delta), `${pct(s.return_pct)} on ${money(s.priced_cost)} covered cost`, tone(s.delta)),
+      stat("SG vs benchmark", signed(s.sg_vs_benchmark), `${pct(s.sg_vs_benchmark_pct)} across ${s.comparison_cards} matched cards`, tone(s.sg_vs_benchmark)),
     ].join("");
-    if (s.as_of) {
-      $("portfolio-asof").textContent = `Latest connected-shop snapshot: ${new Date(s.as_of * 1000).toLocaleString()}`;
-    }
+    const dates = [];
+    if (s.benchmark_as_of) dates.push(`TCGplayer: ${new Date(s.benchmark_as_of * 1000).toLocaleString()}`);
+    if (s.as_of) dates.push(`SG shops: ${new Date(s.as_of * 1000).toLocaleString()}`);
+    if (s.fx_rate) dates.push(`USD/SGD ${Number(s.fx_rate).toFixed(4)} (${s.fx_as_of || "latest"})`);
+    $("portfolio-asof").textContent = dates.join(" · ");
 
     const trend = data.trend_30d;
     $("portfolio-trend").innerHTML = trend.status === "ready"
@@ -54,10 +57,11 @@
     allocation("portfolio-folders", data.folders);
     $("portfolio-positions").innerHTML = data.positions.map((row) => `
       <tr>
-        <td><b>${esc(row.name)}</b><div class="cmeta">${esc(row.card_key)} · ${esc(row.finish)}</div></td>
-        <td>${row.qty}</td><td>${money(row.paid)}</td><td>${money(row.value)}</td>
+        <td><b>${row.benchmark_url ? `<a href="${esc(row.benchmark_url)}" target="_blank" rel="noopener">${esc(row.name)}</a>` : esc(row.name)}</b><div class="cmeta">${esc(row.card_key)} · ${esc(row.finish)}</div></td>
+        <td>${row.qty}</td><td>${money(row.paid)}</td><td>${money(row.value)}${row.native_unit_value == null ? "" : `<div class="cmeta">${money(row.unit_value)} ea. · US$${Number(row.native_unit_value).toFixed(2)}</div>`}</td>
+        <td>${money(row.sg_value)}${row.sg_unit_value == null ? "" : `<div class="cmeta">${money(row.sg_unit_value)} ea. · ${row.shops} shop${row.shops === 1 ? "" : "s"}</div>`}</td>
         <td class="${row.delta == null ? "" : tone(row.delta)}">${row.delta == null ? "—" : `${signed(row.delta)} (${pct(row.return_pct)})`}</td>
-        <td>${row.shops ? `${row.shops} shop${row.shops === 1 ? "" : "s"}` : "Unpriced"}</td>
+        <td class="${row.sg_vs_benchmark == null ? "" : tone(-row.sg_vs_benchmark)}">${row.sg_vs_benchmark == null ? "—" : signed(row.sg_vs_benchmark)}</td>
       </tr>`).join("");
 
     const labels = { connected: "Connected", search_only: "Search only", not_connected: "Not connected", unavailable: "Unavailable" };

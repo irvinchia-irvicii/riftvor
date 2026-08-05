@@ -577,7 +577,7 @@ main.single { grid-template-columns: 1fr; }
 .portfolio-loading { padding: 40px; text-align: center; color: var(--accent-2); }
 .portfolio-summary {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 12px;
   margin-bottom: 18px;
 }
@@ -595,6 +595,7 @@ main.single { grid-template-columns: 1fr; }
 .portfolio-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
 .portfolio-panel { border-radius: 18px; }
 .portfolio-panel h2 { margin: 5px 0 13px; }
+.portfolio-panel td a { color: var(--accent-2); text-decoration: none; }
 .trend-value { font-size: 32px; font-weight: 850; }
 .trend-value.soft { color: var(--accent-2); font-size: 22px; }
 .portfolio-panel p { color: var(--muted); margin: 4px 0; }

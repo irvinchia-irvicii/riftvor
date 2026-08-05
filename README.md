@@ -61,11 +61,19 @@ pasting into a note or a message to the shop.
 - **Founder preview:** the first account on an existing local installation gets
   Portfolio Analytics while the feature is being developed. New accounts stay
   on the free-account tier.
-- **Portfolio Analytics:** median connected-shop reference value, gains/losses,
-  price coverage, set and folder allocation, concentration, source comparison,
-  and a 30-day pulse once enough history has accumulated. Bilgewater Market
-  and TCGplayer are labelled as unconnected until an authorised feed is in
-  place; the app never invents their prices.
+- **Portfolio Analytics:** TCGplayer market prices supplied by Riftbound.gg are
+  the main benchmark, converted from USD to SGD with the latest daily
+  Frankfurter exchange rate and cached for six hours. The dashboard compares
+  that benchmark with the median price at connected Singapore shops, then
+  shows gains/losses, coverage, allocations, concentration, and a 30-day local
+  shop pulse once enough history has accumulated. Bilgewater Market remains
+  labelled as unconnected because its feed requires protected credentials; the
+  app never invents missing prices.
+
+Riftbound.gg data is displayed with source attribution and links back to its
+card pages. Its TCGplayer figures are reference values rather than buyable shop
+listings, and portfolio values are estimates rather than guaranteed sale
+proceeds.
 
 Local development uses email/password accounts with securely hashed passwords
 and per-user SQLite ownership. Google sign-in and email verification are a

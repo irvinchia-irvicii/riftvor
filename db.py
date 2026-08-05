@@ -120,6 +120,33 @@ CREATE TABLE IF NOT EXISTS dormant_notices(
     detail     TEXT,
     noticed_at REAL
 );
+
+-- External reference prices are kept separate from local shop inventory.
+-- They are benchmarks, not listings the user can necessarily buy in SGD.
+CREATE TABLE IF NOT EXISTS external_prices(
+    source          TEXT NOT NULL,
+    card_key        TEXT NOT NULL,
+    finish          TEXT NOT NULL,
+    native_price    REAL NOT NULL,
+    native_currency TEXT NOT NULL,
+    sgd_price       REAL NOT NULL,
+    delta_1d_sgd    REAL,
+    delta_7d_sgd    REAL,
+    url             TEXT,
+    synced_at       REAL NOT NULL,
+    PRIMARY KEY (source, card_key, finish)
+);
+CREATE INDEX IF NOT EXISTS idx_external_prices_card
+    ON external_prices(card_key, finish);
+
+CREATE TABLE IF NOT EXISTS fx_rates(
+    base       TEXT NOT NULL,
+    quote      TEXT NOT NULL,
+    rate       REAL NOT NULL,
+    as_of      TEXT,
+    synced_at  REAL NOT NULL,
+    PRIMARY KEY (base, quote)
+);
 """
 
 
