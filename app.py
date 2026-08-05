@@ -11,8 +11,8 @@ import logging
 import time
 from datetime import timedelta
 
-from flask import (Flask, jsonify, redirect, render_template, request,
-                   send_file, session, url_for)
+from flask import Flask, jsonify, redirect, render_template, request, send_file
+from flask_httpauth import HTTPBasicAuth
 
 import accounts
 import basket
@@ -50,11 +50,14 @@ db.init_db()
 if config.SNAPSHOT_MODE:
     catalog_snapshot.bootstrap_if_empty()
 
-# ── Private review access ───────────────────────────────────────────────────
-# A normal HTML form is used instead of the browser's native HTTP Basic Auth
-# prompt. Native prompts can flicker and repeatedly steal focus while a free
-# Render instance wakes and its requests are retried.
-PUBLIC_PATHS = {"/api/health", "/riot.txt", "/review-login"}
+# ── Auth (HOSTING.md Stage 0 prep #3) ───────────────────────────────────────
+# Every route except /api/health sits behind basic auth once a password is
+# set. It is off by default so nothing changes for local single-user use —
+# but declaring the app reachable (RIFTVOR_HOST=0.0.0.0, as render.yaml does)
+# without setting a password is refused rather than quietly served open.
+# /api/health stays public because Render's health check probes it unauthed.
+auth = HTTPBasicAuth()
+PUBLIC_PATHS = {"/api/health", "/riot.txt"}
 
 if not config.auth_enabled() and config.HOST not in config.LOCAL_HOSTS:
     raise RuntimeError(
@@ -63,64 +66,31 @@ if not config.auth_enabled() and config.HOST not in config.LOCAL_HOSTS:
         f"instance lets anyone make this server hammer the SG stores.")
 
 if config.auth_enabled():
-    log.info("review access form ON (user %r)", config.AUTH_USER)
+    log.info("basic auth ON (user %r)", config.AUTH_USER)
 else:
-    log.info("review access form OFF — localhost only")
+    log.info("basic auth OFF — localhost only")
 log.info("egress: %s | sync: %s | page delay: %.1f+0–%.1fs",
          config.proxy_label(),
          "sequential" if config.SEQUENTIAL_SYNC else "parallel",
          config.PAGE_DELAY_S, config.PAGE_JITTER_S)
 
 
+@auth.verify_password
+def _verify(username: str, password: str) -> str | None:
+    ok = (hmac.compare_digest(username or "", config.AUTH_USER)
+          & hmac.compare_digest(password or "", config.AUTH_PASSWORD))
+    return config.AUTH_USER if ok else None
+
+
 @app.before_request
 def _require_auth():
     """Gate everything at the door rather than decorating 20 routes — a new
     endpoint is then protected by default instead of by remembering to."""
-    if (not config.auth_enabled() or request.path in PUBLIC_PATHS
-            or request.path.startswith("/static/")
-            or session.get("review_access") is True):
+    if not config.auth_enabled() or request.path in PUBLIC_PATHS:
         return None
-    if request.path.startswith("/api/"):
-        return jsonify({
-            "error": "Private review access is required.",
-            "code": "review_auth_required",
-        }), 401
-    next_url = request.full_path if request.query_string else request.path
-    return redirect(url_for("review_login", next=next_url))
-
-
-def _review_next() -> str:
-    next_url = (request.values.get("next") or "/").strip()
-    if not next_url.startswith("/") or next_url.startswith("//"):
-        return "/"
-    return next_url
-
-
-@app.route("/review-login", methods=["GET", "POST"])
-def review_login():
-    if not config.auth_enabled():
-        return redirect("/")
-    error = None
-    if request.method == "POST":
-        username = request.form.get("username", "")
-        password = request.form.get("password", "")
-        valid = (hmac.compare_digest(username, config.AUTH_USER)
-                 & hmac.compare_digest(password, config.AUTH_PASSWORD))
-        if valid:
-            session["review_access"] = True
-            session.permanent = True
-            return redirect(_review_next())
-        error = "That review username or password is not correct."
-    return render_template(
-        "review_login.html", error=error, next_url=_review_next(),
-        review_username=config.AUTH_USER,
-    ), (401 if error else 200)
-
-
-@app.post("/review-logout")
-def review_logout():
-    session.pop("review_access", None)
-    return redirect(url_for("review_login"))
+    # login_required returns the 401 challenge on failure, else the wrapped
+    # callable's return — None here, which lets the request through.
+    return auth.login_required(lambda: None)()
 
 
 @app.get("/")
