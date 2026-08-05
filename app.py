@@ -54,7 +54,7 @@ db.init_db()
 # without setting a password is refused rather than quietly served open.
 # /api/health stays public because Render's health check probes it unauthed.
 auth = HTTPBasicAuth()
-PUBLIC_PATHS = {"/api/health"}
+PUBLIC_PATHS = {"/api/health", "/riot.txt"}
 
 if not config.auth_enabled() and config.HOST not in config.LOCAL_HOSTS:
     raise RuntimeError(
@@ -103,6 +103,12 @@ def index():
                     "live": True}]),
         ttl=config.TTL_SECONDS,
     )
+
+
+@app.get("/riot.txt")
+def riot_verification():
+    """Public ownership proof required by Riot Developer Relations."""
+    return send_file(config.BASE_DIR / "riot.txt", mimetype="text/plain")
 
 
 @app.get("/privacy")

@@ -8,6 +8,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import app as app_module  # noqa: E402
+import config  # noqa: E402
 import db  # noqa: E402
 
 
@@ -43,6 +44,18 @@ def test_signup_session_and_logout(client):
     assert client.post("/api/auth/logout").status_code == 200
     assert client.get("/api/collection").status_code == 401
     assert client.get("/collection").status_code == 302
+
+
+def test_riot_verification_file_stays_public_behind_review_password(
+        client, monkeypatch):
+    monkeypatch.setattr(config, "AUTH_PASSWORD", "review-secret")
+    assert client.get("/").status_code == 401
+    response = client.get("/riot.txt")
+    assert response.status_code == 200
+    assert response.mimetype == "text/plain"
+    assert response.get_data(as_text=True).strip() == (
+        "06e8fc0e-b6a8-4bab-af84-3c4f2c087bcf"
+    )
 
 
 def test_password_and_duplicate_email_validation(client):
