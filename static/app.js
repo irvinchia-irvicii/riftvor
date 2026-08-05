@@ -257,12 +257,13 @@ async function addToCollection(items, btn, label) {
   }
 }
 
-async function loadPlanFolders() {
+async function loadPlanFolders(preferredFolderId = null) {
   if (!window.ShopDiffAuth?.state.authenticated) return;
   try {
     const folders = await api("/api/collection/folders");
     const select = $("plan-folder-select");
-    const selected = select.value;
+    const selected = preferredFolderId == null
+      ? select.value : String(preferredFolderId);
     select.innerHTML = '<option value="">Unfiled</option>';
     for (const folder of folders) {
       const option = document.createElement("option");
@@ -276,8 +277,43 @@ async function loadPlanFolders() {
   } catch { /* account state may have changed; collection action handles it */ }
 }
 
+function resetPlanFolderCreator() {
+  $("plan-folder-create").classList.add("hidden");
+  $("plan-folder-name").value = "";
+  $("plan-folder-status").textContent = "";
+}
+
+async function createPlanFolder() {
+  const input = $("plan-folder-name");
+  const button = $("plan-folder-create-btn");
+  const status = $("plan-folder-status");
+  const name = input.value.trim();
+  if (!name) {
+    status.textContent = "Name your folder first.";
+    input.focus();
+    return;
+  }
+  button.disabled = true;
+  status.textContent = "Creating…";
+  try {
+    const result = await api("/api/collection/folders", {
+      method: "POST",
+      body: JSON.stringify({ name }),
+    });
+    await loadPlanFolders(result.folder.id);
+    input.value = "";
+    $("plan-folder-create").classList.add("hidden");
+    status.textContent = `Created “${result.folder.name}” ✓`;
+  } catch (err) {
+    status.textContent = err.message || "Could not create that folder.";
+  } finally {
+    button.disabled = false;
+  }
+}
+
 function openPlan(plan, names) {
   loadPlanFolders();
+  resetPlanFolderCreator();
   $("plan-modal-title").textContent = plan.label;
   $("plan-modal-sub").textContent =
     `${fmt(plan.total)} · ${plan.cards_total} cards · `
@@ -369,6 +405,19 @@ function openPlan(plan, names) {
 }
 
 $("plan-modal-close").onclick = () => $("plan-modal").classList.add("hidden");
+$("plan-folder-toggle").onclick = () => {
+  const creator = $("plan-folder-create");
+  creator.classList.toggle("hidden");
+  $("plan-folder-status").textContent = "";
+  if (!creator.classList.contains("hidden")) $("plan-folder-name").focus();
+};
+$("plan-folder-create-btn").onclick = createPlanFolder;
+$("plan-folder-name").addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    createPlanFolder();
+  }
+});
 $("plan-modal").addEventListener("click", (e) => {
   if (e.target === $("plan-modal")) $("plan-modal").classList.add("hidden");
 });

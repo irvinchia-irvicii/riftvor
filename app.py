@@ -6,6 +6,7 @@ table, watchlist, history charts, xlsx export, saved buy lists.
 """
 from __future__ import annotations
 
+import hashlib
 import hmac
 import logging
 import time
@@ -13,6 +14,7 @@ from datetime import timedelta
 
 from flask import Flask, jsonify, redirect, render_template, request, send_file
 from flask_httpauth import HTTPBasicAuth
+from werkzeug.security import check_password_hash
 
 import accounts
 import basket
@@ -61,11 +63,12 @@ if accounts.ensure_review_account():
 # /api/health stays public because Render's health check probes it unauthed.
 auth = HTTPBasicAuth()
 PUBLIC_PATHS = {"/api/health", "/riot.txt"}
+_AUTH_SUCCESS_DIGEST: bytes | None = None
 
 if not config.auth_enabled() and config.HOST not in config.LOCAL_HOSTS:
     raise RuntimeError(
         f"RIFTVOR_HOST={config.HOST} exposes Riftvor beyond this machine but "
-        f"RIFTVOR_AUTH_PASSWORD is unset. Set it (see HOSTING.md) — an open "
+        "No review password is configured (see HOSTING.md) — an open "
         f"instance lets anyone make this server hammer the SG stores.")
 
 if config.auth_enabled():
@@ -80,8 +83,25 @@ log.info("egress: %s | sync: %s | page delay: %.1f+0–%.1fs",
 
 @auth.verify_password
 def _verify(username: str, password: str) -> str | None:
-    ok = (hmac.compare_digest(username or "", config.AUTH_USER)
-          & hmac.compare_digest(password or "", config.AUTH_PASSWORD))
+    global _AUTH_SUCCESS_DIGEST
+    username_ok = hmac.compare_digest(username or "", config.AUTH_USER)
+    if config.AUTH_PASSWORD_HASH:
+        candidate = hashlib.sha256(
+            f"{username}\0{password}".encode("utf-8")
+        ).digest()
+        password_ok = bool(
+            _AUTH_SUCCESS_DIGEST
+            and hmac.compare_digest(candidate, _AUTH_SUCCESS_DIGEST)
+        )
+        if not password_ok:
+            password_ok = check_password_hash(
+                config.AUTH_PASSWORD_HASH, password or "")
+            if username_ok and password_ok:
+                _AUTH_SUCCESS_DIGEST = candidate
+    else:
+        password_ok = hmac.compare_digest(
+            password or "", config.AUTH_PASSWORD)
+    ok = username_ok & password_ok
     return config.AUTH_USER if ok else None
 
 

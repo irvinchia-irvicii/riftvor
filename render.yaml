@@ -30,9 +30,9 @@ services:
         value: 0.0.0.0        # declares "publicly reachable" → app.py then
                               # refuses to boot without an auth password.
       - key: RIFTVOR_AUTH_USER
-        value: trevor
-      - key: RIFTVOR_AUTH_PASSWORD
-        generateValue: true   # read it from the Render dashboard after deploy
+        value: riotgames
+      - key: RIFTVOR_AUTH_PASSWORD_HASH
+        value: 'scrypt:32768:8:1$Dx5D42f7Qndv2fqt$a45ecfcdbc7ec775f30a4864414ee6efd46922c6f82d6cdd8b53c390bc1e4363477d51055e5841a4a44192b1c5a1c56fce8100b3208529111f4f3b1b243a014b'
       - key: RIFTVOR_REVIEW_ACCOUNT_USERNAME
         value: riotgames
       - key: RIFTVOR_REVIEW_ACCOUNT_PASSWORD_HASH

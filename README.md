@@ -202,6 +202,7 @@ basic auth. Optional env vars, all read from the environment or `.env`:
 |---|---|---|
 | `RIFTVOR_AUTH_USER` | `riftvor` | Basic-auth username |
 | `RIFTVOR_AUTH_PASSWORD` | *(unset)* | Set it to require auth on every route except `/api/health`. Unset = off (local single-user default) |
+| `RIFTVOR_AUTH_PASSWORD_HASH` | *(unset)* | Preferred hosted alternative: a Werkzeug password hash. When set, it takes precedence over the plaintext password variable. |
 | `RIFTVOR_HOST` | `127.0.0.1` | Anything non-loopback declares the app publicly reachable; the app then **refuses to start** without `RIFTVOR_AUTH_PASSWORD` |
 | `RIFTVOR_BASE_URL` | `http://127.0.0.1:5009/` | Link written into watchlist alert emails |
 | `RIFTVOR_SECRET_KEY` | auto-generated locally | Flask session signing key; set explicitly when hosted |

@@ -49,6 +49,7 @@ def test_signup_session_and_logout(client):
 
 def test_riot_verification_file_stays_public_behind_review_password(
         client, monkeypatch):
+    monkeypatch.setattr(config, "AUTH_PASSWORD_HASH", "")
     monkeypatch.setattr(config, "AUTH_PASSWORD", "review-secret")
     assert client.get("/").status_code == 401
     response = client.get("/riot.txt")
@@ -57,6 +58,24 @@ def test_riot_verification_file_stays_public_behind_review_password(
     assert response.get_data(as_text=True).strip() == (
         "06e8fc0e-b6a8-4bab-af84-3c4f2c087bcf"
     )
+
+
+def test_review_gate_accepts_hashed_password(client, monkeypatch):
+    from werkzeug.security import generate_password_hash
+
+    monkeypatch.setattr(config, "AUTH_USER", "riotgames")
+    monkeypatch.setattr(config, "AUTH_PASSWORD", "ignored-old-password")
+    monkeypatch.setattr(
+        config, "AUTH_PASSWORD_HASH", generate_password_hash("sorakareview"),
+    )
+    wrong = client.get("/", headers={
+        "Authorization": "Basic cmlvdGdhbWVzOndyb25n",
+    })
+    assert wrong.status_code == 401
+    correct = client.get("/", headers={
+        "Authorization": "Basic cmlvdGdhbWVzOnNvcmFrYXJldmlldw==",
+    })
+    assert correct.status_code == 200
 
 
 def test_password_and_duplicate_email_validation(client):

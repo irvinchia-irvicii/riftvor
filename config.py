@@ -42,7 +42,7 @@ load_env()
 PORT = int(os.environ.get("RIFTVOR_PORT", 5009))
 # Localhost-only by default. RIFTVOR_HOST is the declared exposure intent:
 # anything other than a loopback address means "reachable by other people",
-# and app.py refuses to start in that state without RIFTVOR_AUTH_PASSWORD.
+# and app.py refuses to start in that state without a review password.
 # (Under gunicorn the actual bind comes from the start command; this value
 # is still read, so the guard holds there too.)
 HOST = os.environ.get("RIFTVOR_HOST", "127.0.0.1")
@@ -57,6 +57,7 @@ BASE_URL = os.environ.get("RIFTVOR_BASE_URL", f"http://127.0.0.1:{PORT}/")
 # was. Set it and every route except /api/health requires credentials.
 AUTH_USER = os.environ.get("RIFTVOR_AUTH_USER", "riftvor")
 AUTH_PASSWORD = os.environ.get("RIFTVOR_AUTH_PASSWORD", "")
+AUTH_PASSWORD_HASH = os.environ.get("RIFTVOR_AUTH_PASSWORD_HASH", "").strip()
 
 # Optional internal reviewer account. Store only a one-way password hash in
 # deployment configuration; never commit or log the plaintext password.
@@ -96,7 +97,7 @@ ANALYTICS_MIN_CONTRIBUTORS = int(
 
 
 def auth_enabled() -> bool:
-    return bool(AUTH_PASSWORD)
+    return bool(AUTH_PASSWORD_HASH or AUTH_PASSWORD)
 
 # ── Politeness (§10 of the PRD) ─────────────────────────────────────────────
 USER_AGENT = "Riftvor/1.0 personal price tracker"

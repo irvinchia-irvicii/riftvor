@@ -120,6 +120,15 @@
           <option value="">Unfiled</option>
         </select>
       </label>
+      <div class="plan-new-folder member-only">
+        <button id="plan-folder-toggle" class="mini" type="button">+ New folder</button>
+        <div id="plan-folder-create" class="plan-folder-create hidden">
+          <input id="plan-folder-name" maxlength="80"
+            placeholder="Deck or purchase name" aria-label="New folder name">
+          <button id="plan-folder-create-btn" class="mini" type="button">Create</button>
+        </div>
+        <span id="plan-folder-status" class="plan-folder-status"></span>
+      </div>
       <button id="plan-modal-close" class="ghost">✕</button>
     </div>
     <div id="plan-modal-body" class="plan-body"></div>

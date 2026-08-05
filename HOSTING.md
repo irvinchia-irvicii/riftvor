@@ -71,11 +71,11 @@ Verified locally under the real start command: unauthed `/` → 401, authed →
 
 1. Push `main` to `github.com/aerialist88/riftvor`
 2. Render → New → Blueprint → pick the repo (it reads `render.yaml`)
-3. Copy the generated `RIFTVOR_AUTH_PASSWORD` from the dashboard, and set
+3. Confirm the review username/password hash variables and set
    `RIFTVOR_BASE_URL` to the assigned service URL
-4. `curl -u trevor:<pw> -X POST https://<service>.onrender.com/api/refresh`
+4. `curl -u riotgames:<pw> -X POST https://<service>.onrender.com/api/refresh`
 5. Read the verdict — per-store `ok` / `message`:
-   `curl -su trevor:<pw> https://<service>.onrender.com/api/state`
+   `curl -su riotgames:<pw> https://<service>.onrender.com/api/state`
 
 First request cold-starts a free instance (~1 min); the sync itself runs
 30–90 s. A store that answers reports `ok: true` with a listing count; a

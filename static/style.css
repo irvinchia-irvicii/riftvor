@@ -386,6 +386,34 @@ td.card-cell img {
   text-transform: uppercase;
 }
 .plan-folder-label select { padding: 6px 9px; }
+.plan-new-folder {
+  position: relative;
+  display: grid;
+  gap: 4px;
+}
+.plan-new-folder > button { margin-left: 0; }
+.plan-folder-create {
+  position: absolute;
+  z-index: 2;
+  top: calc(100% + 5px);
+  right: 0;
+  display: flex;
+  gap: 6px;
+  width: min(360px, 75vw);
+  padding: 9px;
+  border: 1px solid var(--line-hot);
+  border-radius: 10px;
+  background: var(--panel-hot);
+  box-shadow: var(--shadow);
+}
+.plan-folder-create input { min-width: 0; flex: 1; padding: 7px 9px; }
+.plan-folder-create button { margin-left: 0; }
+.plan-folder-status {
+  max-width: 210px;
+  color: var(--good);
+  font-size: 10px;
+  line-height: 1.2;
+}
 .plan-store { margin-bottom: 14px; }
 .plan-store-head {
   display: flex;
