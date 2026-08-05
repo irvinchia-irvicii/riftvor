@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Retail Market Pulse — Soraka's Wish</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header class="simple-header">
+  <a class="brand-copy" href="/"><h1>SORAKA'S <span>WISH</span></h1></a>
+  <a class="ghost btn-link" href="/">Player search</a>
+</header>
+<main class="single retailer-page">
+  <section class="retailer-hero">
+    <span class="eyebrow">FOR SINGAPORE CARD RETAILERS</span>
+    <h2>A weekly signal—not a customer list.</h2>
+    <p>An anonymized view of card interest, collection additions, local price
+      movement, and availability. Individual portfolios are never shared.</p>
+    <div class="approval-badge">Approval preview · billing disabled</div>
+  </section>
+
+  <section class="retailer-grid">
+    <article class="panel-static">
+      <span class="section-code">MARKET_PULSE</span>
+      <h2>This week's privacy-safe report</h2>
+      {% if pulse.status == "ready" %}
+      <div class="pulse-list">
+        {% for row in pulse.signals %}
+        <div><b>{{ row.name }}</b><span>{{ row.contributors }} contributors · {{ row.actions }} {{ row.event_type|replace('_', ' ') }} events</span></div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="sample-report">
+        <b>Not enough consenting contributors yet.</b>
+        <p>Live card rows remain hidden until each signal includes at least
+          {{ min_contributors }} distinct contributors.</p>
+        <h3>Illustrative newsletter modules</h3>
+        <ul>
+          <li>Cards with accelerating search interest</li>
+          <li>Collection-add momentum by set and finish</li>
+          <li>Singapore price gaps against the reference benchmark</li>
+          <li>Local availability and recurring stock-out signals</li>
+        </ul>
+      </div>
+      {% endif %}
+      <p class="method-note">{{ pulse.methodology }}</p>
+    </article>
+
+    <article class="panel-static retailer-plan">
+      <span class="section-code">FOUNDING_PREVIEW</span>
+      <h2>Retailer Market Pulse</h2>
+      <div class="retailer-price">S$29 <small>/ month proposed</small></div>
+      <p>Weekly email plus web report. No payment is collected while permissions
+        and product approval are pending.</p>
+      <form id="retailer-form" class="auth-form">
+        <label>Shop name<input name="shop_name" maxlength="100" required></label>
+        <label>Business email<input name="email" type="email" required></label>
+        <label class="consent-check required-consent">
+          <input name="newsletter_consent" type="checkbox" required>
+          <span>I request the retailer preview newsletter and agree to the
+            <a href="/privacy" target="_blank">Privacy Notice</a>. I can unsubscribe anytime.</span>
+        </label>
+        <button class="primary" type="submit">Join approval waitlist</button>
+        <div id="retailer-status" class="status"></div>
+      </form>
+    </article>
+  </section>
+</main>
+{% include "_legal_footer.html" %}
+<script src="{{ url_for('static', filename='retailers.js') }}"></script>
+</body>
+</html>

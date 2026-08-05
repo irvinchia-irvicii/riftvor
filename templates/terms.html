@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Terms — Soraka's Wish</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header class="simple-header">
+  <a class="brand-copy" href="/"><h1>SORAKA'S <span>WISH</span></h1></a>
+  <a class="ghost btn-link" href="/">Back to search</a>
+</header>
+<main class="single policy-page">
+  <article class="panel-static prose-card">
+    <span class="section-code">DEVELOPMENT_TERMS · {{ consent_version }}</span>
+    <h2>Fair use of a fan-built tool.</h2>
+    <p>These are development-stage terms and will be professionally reviewed before
+      public launch or payment collection.</p>
+    <h3>The service</h3>
+    <p>Soraka's Wish provides card discovery, collection records, and indicative
+      analytics. Prices may be delayed, incomplete, or incorrect and are not offers,
+      guaranteed sale proceeds, or financial advice. Verify price, condition, stock,
+      shipping, and seller terms before purchasing.</p>
+    <h3>Your account</h3>
+    <p>Provide accurate information, protect your credentials, and do not misuse the
+      service, automate excessive requests, interfere with other users, or upload
+      unlawful content. You retain ownership of information you enter.</p>
+    <h3>Research contribution</h3>
+    <p>Community analytics is governed by a separate optional consent. Declining it
+      does not prevent normal account use. Aggregate outputs may be used in free or
+      paid market reports only under the safeguards in the Privacy Notice.</p>
+    <h3>Retailer preview</h3>
+    <p>The retailer programme is an approval waitlist. No subscription fee will be
+      collected until Riot Games and relevant data providers approve the intended
+      use. Preview examples are illustrative and are not live market claims.</p>
+    <h3>Fan-project status</h3>
+    <p>Soraka's Wish is an independent fan project and working title pending approval.
+      It is not endorsed or sponsored by Riot Games. Third-party names, card content,
+      and data remain the property of their respective owners.</p>
+  </article>
+</main>
+{% include "_legal_footer.html" %}
+</body>
+</html>

@@ -24,13 +24,13 @@ def credentials() -> tuple[str, str, str] | None:
     return sender, password, to
 
 
-def send(subject: str, body: str) -> bool:
+def send_to(to: str, subject: str, body: str) -> bool:
     creds = credentials()
     if creds is None:
         log.warning("email credentials missing (%s / %s in .env)",
                     config.EMAIL_FROM_ENV, config.SMTP_APP_PASSWORD_ENV)
         return False
-    sender, password, to = creds
+    sender, password, _default_to = creds
     msg = EmailMessage()
     msg["Subject"] = subject
     msg["From"] = sender
@@ -46,3 +46,12 @@ def send(subject: str, body: str) -> bool:
     except (smtplib.SMTPException, OSError) as exc:
         log.error("email send failed: %s", exc)
         return False
+
+
+def send(subject: str, body: str) -> bool:
+    creds = credentials()
+    if creds is None:
+        log.warning("email credentials missing (%s / %s in .env)",
+                    config.EMAIL_FROM_ENV, config.SMTP_APP_PASSWORD_ENV)
+        return False
+    return send_to(creds[2], subject, body)

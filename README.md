@@ -80,6 +80,26 @@ and per-user SQLite ownership. Google sign-in and email verification are a
 hosting-stage addition because they require OAuth credentials and a public
 callback URL.
 
+## Consent and community market analytics
+
+Account creation requires acceptance of the development Terms and Privacy
+Notice. Community analytics is a separate optional checkbox that defaults off;
+existing accounts also remain opted out. A consenting user's research events
+contain only the card key, finish, capped quantity, event type, and calendar
+day. Search text, email, folder names, notes, prices paid, shop, location, IP,
+and exact event time are not copied into the analytics dataset.
+
+Users can withdraw from the Account panel. Withdrawal stops collection and
+deletes that account's prior analytics events while leaving its private
+collection intact. Retailer aggregates suppress every card row until at least
+20 distinct consenting users contribute during the reporting window.
+
+`/retailers` is an approval-stage retailer newsletter waitlist. Billing is
+deliberately disabled until Riot Games and relevant data providers approve the
+intended use. `/privacy` and `/terms` are development drafts and must receive a
+professional review before a public launch. Configure the public privacy/DPO
+contact with `RIFTVOR_PRIVACY_CONTACT_EMAIL` when hosting.
+
 ## Collection
 
 **+ Add all to collection** on a plan (or **+ Collection** on a single

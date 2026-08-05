@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy Notice — Soraka's Wish</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header class="simple-header">
+  <a class="brand-copy" href="/"><h1>SORAKA'S <span>WISH</span></h1></a>
+  <a class="ghost btn-link" href="/">Back to search</a>
+</header>
+<main class="single policy-page">
+  <article class="panel-static prose-card">
+    <span class="section-code">PRIVACY_NOTICE · {{ consent_version }}</span>
+    <h2>Your collection stays yours.</h2>
+    <p>This development-stage notice explains how Soraka's Wish handles account,
+      collection, and optional research data. It will be reviewed before public launch.</p>
+
+    <h3>Information needed to provide the service</h3>
+    <p>We store your email address, securely hashed password, saved searches,
+      collection records, folders, purchase prices you enter, and account settings.
+      This information provides sign-in, collection, and portfolio functions. We do
+      not sell or disclose individual portfolios to retailers.</p>
+
+    <h3>Optional community analytics</h3>
+    <p>If you actively opt in, we record only the card identifier, finish, quantity,
+      calendar day, and whether the activity was a search or collection addition.
+      We do not copy search text, email, folder names, notes, prices paid, shop,
+      location, or IP address into the analytics dataset.</p>
+    <p>Retailer reporting uses aggregate statistics only. A card signal is suppressed
+      unless at least 20 distinct consenting users contributed during the reporting
+      period. Searches and collection additions are labelled as interest signals,
+      never represented as verified sales.</p>
+
+    <h3>Your choices</h3>
+    <p>Analytics contribution is optional and is not required to use an account.
+      Change it from the Account panel at any time. Withdrawing consent immediately
+      stops new research events and deletes your existing analytics events. It does
+      not delete your private collection.</p>
+
+    <h3>Retention, security, and requests</h3>
+    <p>We retain account and collection information while your account is active or
+      while reasonably needed to provide the service. Public hosting will use HTTPS,
+      access controls, backups, a breach-response process, and a documented deletion
+      schedule. You may request access, correction, or account deletion.</p>
+    {% if contact_email %}
+    <p>Privacy contact and Data Protection Officer: <a href="mailto:{{ contact_email }}">{{ contact_email }}</a>.</p>
+    {% else %}
+    <p><b>Launch gate:</b> the operator's public privacy/DPO contact must be configured
+      before accounts are opened beyond local development.</p>
+    {% endif %}
+
+    <h3>External services</h3>
+    <p>Market references and outbound shop links may come from third parties. Their
+      sites have their own terms and privacy practices. Soraka's Wish will not provide
+      them with identifiable account or collection information through the analytics
+      programme.</p>
+  </article>
+</main>
+{% include "_legal_footer.html" %}
+</body>
+</html>

@@ -79,6 +79,11 @@ def _session_secret() -> str:
 
 SESSION_SECRET = _session_secret()
 SESSION_COOKIE_SECURE = os.environ.get("RIFTVOR_SESSION_COOKIE_SECURE", "0") == "1"
+PRIVACY_CONTACT_EMAIL = os.environ.get("RIFTVOR_PRIVACY_CONTACT_EMAIL", "").strip()
+CONSENT_VERSION = "2026-08-05"
+ANALYTICS_MIN_CONTRIBUTORS = int(
+    os.environ.get("RIFTVOR_ANALYTICS_MIN_CONTRIBUTORS", 20)
+)
 
 
 def auth_enabled() -> bool:

@@ -16,7 +16,12 @@ CREATE TABLE IF NOT EXISTS users(
     email         TEXT NOT NULL COLLATE NOCASE UNIQUE,
     password_hash TEXT NOT NULL,
     tier          TEXT NOT NULL DEFAULT 'member',
-    created_at    REAL NOT NULL
+    created_at    REAL NOT NULL,
+    terms_version TEXT,
+    terms_accepted_at REAL,
+    analytics_consent INTEGER NOT NULL DEFAULT 0,
+    analytics_consent_version TEXT,
+    analytics_consented_at REAL
 );
 
 CREATE TABLE IF NOT EXISTS collection_folders(
@@ -147,6 +152,46 @@ CREATE TABLE IF NOT EXISTS fx_rates(
     synced_at  REAL NOT NULL,
     PRIMARY KEY (base, quote)
 );
+
+CREATE TABLE IF NOT EXISTS privacy_consents(
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER NOT NULL,
+    purpose    TEXT NOT NULL,
+    granted    INTEGER NOT NULL,
+    version    TEXT NOT NULL,
+    recorded_at REAL NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_privacy_consents_user
+    ON privacy_consents(user_id, recorded_at);
+
+-- Deliberately sparse: no email, folder name, search text, shop, price, IP,
+-- or exact timestamp is placed in the research dataset.
+CREATE TABLE IF NOT EXISTS analytics_events(
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER NOT NULL,
+    event_type TEXT NOT NULL,
+    card_key   TEXT NOT NULL,
+    finish     TEXT NOT NULL,
+    quantity   INTEGER NOT NULL DEFAULT 1,
+    event_day  TEXT NOT NULL,
+    created_at REAL NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_analytics_events_rollup
+    ON analytics_events(event_day, event_type, card_key, finish);
+
+CREATE TABLE IF NOT EXISTS retailer_subscriptions(
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    email       TEXT NOT NULL COLLATE NOCASE UNIQUE,
+    shop_name   TEXT NOT NULL,
+    plan        TEXT NOT NULL DEFAULT 'preview',
+    status      TEXT NOT NULL DEFAULT 'approval_waitlist',
+    consent_version TEXT NOT NULL,
+    consented_at REAL NOT NULL,
+    created_at  REAL NOT NULL,
+    unsubscribe_token TEXT UNIQUE
+);
 """
 
 
@@ -162,6 +207,7 @@ def init_db() -> None:
     with connect() as conn:
         conn.executescript(SCHEMA)
         _migrate_account_ownership(conn)
+        _migrate_privacy(conn)
 
 
 def _columns(conn: sqlite3.Connection, table: str) -> set[str]:
@@ -263,6 +309,30 @@ def _migrate_account_ownership(conn: sqlite3.Connection) -> None:
             conn.execute(
                 "UPDATE users SET tier = 'founder' WHERE id = ?", (first["id"],)
             )
+
+
+def _migrate_privacy(conn: sqlite3.Connection) -> None:
+    """Existing accounts stay private: analytics consent defaults to off."""
+    columns = _columns(conn, "users")
+    additions = {
+        "terms_version": "TEXT",
+        "terms_accepted_at": "REAL",
+        "analytics_consent": "INTEGER NOT NULL DEFAULT 0",
+        "analytics_consent_version": "TEXT",
+        "analytics_consented_at": "REAL",
+    }
+    for name, declaration in additions.items():
+        if name not in columns:
+            conn.execute(f"ALTER TABLE users ADD COLUMN {name} {declaration}")
+    retailer_columns = _columns(conn, "retailer_subscriptions")
+    if "unsubscribe_token" not in retailer_columns:
+        conn.execute(
+            "ALTER TABLE retailer_subscriptions ADD COLUMN unsubscribe_token TEXT"
+        )
+        conn.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_retailer_unsubscribe "
+            "ON retailer_subscriptions(unsubscribe_token)"
+        )
 
 
 def claim_legacy_data(user_id: int) -> None:

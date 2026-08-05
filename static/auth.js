@@ -43,6 +43,10 @@
     }
     $("auth-guest-view").classList.toggle("hidden", state.authenticated);
     $("auth-member-view").classList.toggle("hidden", !state.authenticated);
+    if (state.authenticated) {
+      $("account-analytics-consent").checked = Boolean(
+        state.account?.privacy?.analytics_consent);
+    }
   }
 
   function open(reason, target = null) {
@@ -76,6 +80,8 @@
       const data = await request(`/api/auth/${mode}`, {
         email: form.elements.email.value,
         password: form.elements.password.value,
+        accept_terms: mode === "signup" ? form.elements.accept_terms.checked : undefined,
+        analytics_consent: mode === "signup" ? form.elements.analytics_consent.checked : undefined,
       });
       state = { authenticated: true, account: data.account };
       render();
@@ -129,6 +135,31 @@
   $("auth-logout").onclick = async () => {
     await request("/api/auth/logout", {});
     window.location.href = "/";
+  };
+  $("account-privacy-save").onclick = async () => {
+    const button = $("account-privacy-save");
+    const status = $("account-privacy-status");
+    button.disabled = true;
+    status.textContent = "Saving…";
+    try {
+      const response = await fetch("/api/account/privacy", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          analytics_consent: $("account-analytics-consent").checked,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Could not save privacy choice.");
+      state.account.privacy.analytics_consent = data.privacy.analytics_consent;
+      status.textContent = data.privacy.analytics_consent
+        ? "Saved — contributing anonymously."
+        : `Saved — contribution off; ${data.privacy.events_removed} event(s) removed.`;
+    } catch (error) {
+      status.textContent = error.message;
+    } finally {
+      button.disabled = false;
+    }
   };
   modal.addEventListener("click", (event) => {
     if (event.target === modal) close();

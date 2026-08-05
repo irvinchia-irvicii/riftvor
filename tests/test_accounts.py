@@ -24,10 +24,12 @@ def client(tmp_path, monkeypatch):
     return app_module.app.test_client()
 
 
-def signup(client, email="player@example.com"):
+def signup(client, email="player@example.com", analytics_consent=False):
     return client.post("/api/auth/signup", json={
         "email": email,
         "password": "eightchars",
+        "accept_terms": True,
+        "analytics_consent": analytics_consent,
     })
 
 
@@ -45,12 +47,48 @@ def test_signup_session_and_logout(client):
 
 def test_password_and_duplicate_email_validation(client):
     short = client.post("/api/auth/signup", json={
-        "email": "player@example.com", "password": "short",
+        "email": "player@example.com", "password": "short", "accept_terms": True,
     })
     assert short.status_code == 400
     assert signup(client).status_code == 201
     client.post("/api/auth/logout")
     assert signup(client).status_code == 400
+
+
+def test_signup_requires_terms_and_keeps_analytics_optional(client):
+    refused = client.post("/api/auth/signup", json={
+        "email": "private@example.com", "password": "eightchars",
+        "accept_terms": False,
+    })
+    assert refused.status_code == 400
+    joined = signup(client, "private@example.com")
+    assert joined.status_code == 201
+    assert joined.json["account"]["privacy"]["analytics_consent"] is False
+
+
+def test_analytics_consent_records_sparse_events_and_withdrawal_deletes(client):
+    signup(client, analytics_consent=True)
+    user_id = client.get("/api/auth/me").json["account"]["id"]
+    with db.connect() as conn:
+        conn.execute(
+            """INSERT INTO analytics_events
+               (user_id, event_type, card_key, finish, quantity, event_day, created_at)
+               VALUES (?, 'search', 'OGN-043', 'nonfoil', 1, '2026-08-05', ?)""",
+            (user_id, time.time()),
+        )
+    response = client.patch("/api/account/privacy", json={
+        "analytics_consent": False,
+    })
+    assert response.status_code == 200
+    assert response.json["privacy"]["events_removed"] == 1
+    with db.connect() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM analytics_events").fetchone()[0] == 0
+        latest = conn.execute(
+            """SELECT granted FROM privacy_consents
+               WHERE user_id = ? AND purpose = 'community_analytics'
+               ORDER BY id DESC LIMIT 1""", (user_id,),
+        ).fetchone()
+        assert latest["granted"] == 0
 
 
 def test_anonymous_multi_card_search_is_gated_before_sync(client, monkeypatch):

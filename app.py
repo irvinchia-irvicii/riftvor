@@ -24,6 +24,7 @@ import config
 import db
 import export
 import matching
+import market_insights
 import price_history
 import portfolio
 import sync
@@ -104,6 +105,57 @@ def index():
     )
 
 
+@app.get("/privacy")
+def privacy_page():
+    return render_template(
+        "privacy.html", contact_email=config.PRIVACY_CONTACT_EMAIL,
+        consent_version=config.CONSENT_VERSION,
+    )
+
+
+@app.get("/terms")
+def terms_page():
+    return render_template("terms.html", consent_version=config.CONSENT_VERSION)
+
+
+@app.get("/retailers")
+def retailers_page():
+    return render_template(
+        "retailers.html",
+        pulse=market_insights.weekly_pulse(),
+        min_contributors=config.ANALYTICS_MIN_CONTRIBUTORS,
+    )
+
+
+@app.post("/api/retailers/subscribe")
+def api_retailer_subscribe():
+    payload = request.get_json(force=True) or {}
+    subscriber, error = market_insights.subscribe_retailer(
+        payload.get("email", ""), payload.get("shop_name", ""),
+        payload.get("newsletter_consent") is True,
+    )
+    if error:
+        return jsonify({"error": error}), 400
+    return jsonify({
+        "ok": True, "subscriber": subscriber,
+        "message": "You're on the approval waitlist. No payment has been taken.",
+    }), 201
+
+
+@app.route("/retailers/unsubscribe/<token>", methods=["GET", "POST"])
+def retailer_unsubscribe(token: str):
+    subscriber = market_insights.retailer_for_token(token)
+    if subscriber is None:
+        return render_template("retailer_unsubscribe.html", subscriber=None), 404
+    removed = False
+    if request.method == "POST":
+        removed = market_insights.unsubscribe_retailer(token)
+        subscriber["status"] = "unsubscribed"
+    return render_template(
+        "retailer_unsubscribe.html", subscriber=subscriber, removed=removed,
+    )
+
+
 # ── Accounts ────────────────────────────────────────────────────────────────
 
 @app.get("/api/auth/me")
@@ -116,7 +168,9 @@ def api_auth_me():
 def api_auth_signup():
     payload = request.get_json(force=True) or {}
     account, error = accounts.create(
-        payload.get("email", ""), payload.get("password", "")
+        payload.get("email", ""), payload.get("password", ""),
+        accept_terms=payload.get("accept_terms") is True,
+        analytics_consent=payload.get("analytics_consent") is True,
     )
     if error:
         return jsonify({"error": error}), 400
@@ -138,6 +192,18 @@ def api_auth_login():
 def api_auth_logout():
     accounts.logout()
     return jsonify({"ok": True})
+
+
+@app.patch("/api/account/privacy")
+@accounts.required
+def api_account_privacy():
+    payload = request.get_json(force=True) or {}
+    if not isinstance(payload.get("analytics_consent"), bool):
+        return jsonify({"error": "analytics_consent must be true or false."}), 400
+    result = accounts.set_analytics_consent(
+        accounts.current_user_id(), payload["analytics_consent"]
+    )
+    return jsonify({"ok": True, "privacy": result})
 
 
 @app.get("/api/health")
@@ -205,6 +271,11 @@ def api_search():
         }), 403
     result, summary = _full_comparison(list_text,
                                        force=bool(payload.get("force")))
+    market_insights.record(
+        accounts.current_user_id(), "search",
+        [{"card_key": row.get("card_key"), "finish": row.get("finish"),
+          "qty": row.get("qty", 1)} for row in result.get("rows", [])],
+    )
     result["sync"] = {**_sync_state(), "summary": summary}
     return jsonify(result)
 
@@ -355,6 +426,10 @@ def api_collection_add():
     added = collection.add_many(
         accounts.current_user_id(), items, note=payload.get("note")
     )
+    if added:
+        market_insights.record(
+            accounts.current_user_id(), "collection_add", items
+        )
     return jsonify({"ok": True, "added": added})
 
 
@@ -383,6 +458,10 @@ def api_collection_manual_add():
     }
     added = collection.add_many(accounts.current_user_id(), [item],
                                 note="Manual inventory entry")
+    if added:
+        market_insights.record(
+            accounts.current_user_id(), "collection_add", [item]
+        )
     return jsonify({"ok": True, "added": added, "card_key": card_key})
 
 

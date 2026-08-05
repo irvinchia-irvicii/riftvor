@@ -39,6 +39,16 @@
           <input name="password" type="password" autocomplete="new-password"
                  minlength="8" maxlength="128" required>
         </label>
+        <label class="consent-check required-consent">
+          <input name="accept_terms" type="checkbox" required>
+          <span>I agree to the <a href="/terms" target="_blank">Terms</a> and
+            <a href="/privacy" target="_blank">Privacy Notice</a>.</span>
+        </label>
+        <label class="consent-check optional-consent">
+          <input name="analytics_consent" type="checkbox">
+          <span>Optional: contribute my card searches and collection additions
+            to anonymized community market trends. I can withdraw anytime.</span>
+        </label>
         <button class="primary" type="submit">Create free account</button>
       </form>
       <div id="auth-error" class="auth-error hidden"></div>
@@ -55,6 +65,17 @@
         <span>✓ Collection active</span>
         <span data-portfolio-perk>◇ Portfolio Analytics · founder preview</span>
       </div>
+      <section class="privacy-preference">
+        <span class="section-code">PRIVACY_CHOICE</span>
+        <label class="consent-check optional-consent">
+          <input id="account-analytics-consent" type="checkbox">
+          <span>Contribute anonymized activity to community market trends.</span>
+        </label>
+        <p>No search text, folder names, prices paid, or identity is included
+          in retailer reports. Turning this off deletes your research events.</p>
+        <button id="account-privacy-save" class="ghost" type="button">Save privacy choice</button>
+        <span id="account-privacy-status" class="privacy-status"></span>
+      </section>
       <button id="auth-logout" class="ghost" type="button">Sign out</button>
     </div>
   </div>

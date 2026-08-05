@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Newsletter preference — Soraka's Wish</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header class="simple-header"><a class="brand-copy" href="/"><h1>SORAKA'S <span>WISH</span></h1></a></header>
+<main class="single policy-page">
+  <article class="panel-static prose-card">
+    <span class="section-code">EMAIL_PREFERENCE</span>
+    {% if not subscriber %}
+      <h2>This link is no longer valid.</h2>
+      <p>No newsletter preference was changed.</p>
+    {% elif subscriber.status == 'unsubscribed' %}
+      <h2>You are unsubscribed.</h2>
+      <p>{{ subscriber.email }} will not receive the retailer newsletter.</p>
+    {% else %}
+      <h2>Leave the retailer preview?</h2>
+      <p>Confirm that {{ subscriber.email }} should stop receiving the Soraka's
+        Wish Market Pulse.</p>
+      <form method="post"><button class="primary" type="submit">Confirm unsubscribe</button></form>
+    {% endif %}
+  </article>
+</main>
+{% include "_legal_footer.html" %}
+</body>
+</html>
