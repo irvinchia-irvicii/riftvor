@@ -22,8 +22,8 @@
       </div>
 
       <form id="auth-login-form" class="auth-form">
-        <label>Email
-          <input name="email" type="email" autocomplete="email" required>
+        <label>Email or username
+          <input name="email" type="text" autocomplete="username" required>
         </label>
         <label>Password
           <input name="password" type="password" autocomplete="current-password" required>
@@ -32,8 +32,8 @@
       </form>
 
       <form id="auth-signup-form" class="auth-form hidden">
-        <label>Email
-          <input name="email" type="email" autocomplete="email" required>
+        <label>Email or username
+          <input name="email" type="text" autocomplete="username" required>
         </label>
         <label>Password <span>8 characters minimum</span>
           <input name="password" type="password" autocomplete="new-password"
@@ -52,8 +52,8 @@
         <button class="primary" type="submit">Create free account</button>
       </form>
       <div id="auth-error" class="auth-error hidden"></div>
-      <p class="auth-note">Local development account. Google sign-in and email
-        verification can be added when the site is hosted.</p>
+      <p class="auth-note">Development account using an email or private username.
+        Google sign-in and email verification can be added before public launch.</p>
     </div>
 
     <div id="auth-member-view" class="hidden">

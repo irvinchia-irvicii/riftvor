@@ -1,6 +1,6 @@
 """Local Soraka's Wish accounts and session helpers.
 
-Email/password is the development-stage identity provider. The user table and
+Username-or-email/password is the development-stage identity provider. The user table and
 session boundary are intentionally provider-neutral so hosted Google OAuth can
 attach to the same accounts later without changing feature ownership.
 """
@@ -18,6 +18,7 @@ import db
 import config
 
 EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+USERNAME_RE = re.compile(r"^[a-z0-9][a-z0-9_.-]{2,31}$")
 ACCOUNT_REQUIRED = {
     "error": "Create a free account or sign in to unlock this feature.",
     "code": "account_required",
@@ -26,6 +27,10 @@ ACCOUNT_REQUIRED = {
 
 def _clean_email(value: str) -> str:
     return (value or "").strip().lower()
+
+
+def _valid_identifier(value: str) -> bool:
+    return bool(EMAIL_RE.match(value) or USERNAME_RE.match(value))
 
 
 def public_account(row) -> dict:
@@ -73,8 +78,8 @@ def current_user_id() -> int | None:
 def create(email: str, password: str, *, accept_terms: bool = False,
            analytics_consent: bool = False) -> tuple[dict | None, str | None]:
     email = _clean_email(email)
-    if not EMAIL_RE.match(email) or len(email) > 254:
-        return None, "Enter a valid email address."
+    if not _valid_identifier(email) or len(email) > 254:
+        return None, "Enter a valid email address or username."
     if len(password or "") < 8:
         return None, "Use at least 8 characters for your password."
     if len(password) > 128:
@@ -111,7 +116,7 @@ def create(email: str, password: str, *, accept_terms: bool = False,
                    FROM users WHERE id = ?""", (user_id,)
             ).fetchone()
     except sqlite3.IntegrityError:
-        return None, "An account with that email already exists."
+        return None, "An account with that email or username already exists."
 
     db.claim_legacy_data(user_id)
     session.clear()
@@ -130,7 +135,7 @@ def authenticate(email: str, password: str) -> tuple[dict | None, str | None]:
             (email,),
         ).fetchone()
     if row is None or not check_password_hash(row["password_hash"], password or ""):
-        return None, "Email or password is incorrect."
+        return None, "Email/username or password is incorrect."
     session.clear()
     session["user_id"] = row["id"]
     session.permanent = True

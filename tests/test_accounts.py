@@ -68,6 +68,26 @@ def test_password_and_duplicate_email_validation(client):
     assert signup(client).status_code == 400
 
 
+def test_username_account_can_sign_in_for_multicard_search(client, monkeypatch):
+    created = signup(client, "riotgames")
+    assert created.status_code == 201
+    assert created.json["account"]["email"] == "riotgames"
+    client.post("/api/auth/logout")
+    signed_in = client.post("/api/auth/login", json={
+        "email": "riotgames", "password": "eightchars",
+    })
+    assert signed_in.status_code == 200
+    assert signed_in.json["account"]["entitlements"]["multi_card_search"] is True
+
+    monkeypatch.setattr(app_module, "_full_comparison", lambda *args, **kwargs: (
+        {"rows": [], "unmatched": [], "store_order": [], "basket": {},
+         "carousell": []}, {"synced": []}))
+    searched = client.post("/api/search", json={
+        "list_text": "OGN-043\nUNL-053",
+    })
+    assert searched.status_code == 200
+
+
 def test_signup_requires_terms_and_keeps_analytics_optional(client):
     refused = client.post("/api/auth/signup", json={
         "email": "private@example.com", "password": "eightchars",
