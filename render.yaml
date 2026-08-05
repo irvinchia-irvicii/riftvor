@@ -35,6 +35,8 @@ services:
         generateValue: true   # read it from the Render dashboard after deploy
       - key: RIFTVOR_BASE_URL
         sync: false           # set to the service URL once Render assigns it
+      - key: RIFTVOR_CATALOG_MODE
+        value: snapshot       # reliable review search; no blocked live scraping
 
       # ── Polite pacing (Stage 0 re-test, HOSTING.md "Stage 0 result") ──
       # Set ONLY here. The Mac keeps the fast parallel defaults; a datacenter

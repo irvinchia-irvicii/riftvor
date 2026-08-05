@@ -185,6 +185,21 @@ dollars a month, provided sync frequency stays controlled.
 
 ## Stage A — private hosted single-user (~$7.25/mo)
 
+### Private review deployment (current)
+
+The Render blueprint sets `RIFTVOR_CATALOG_MODE=snapshot`. A new Render
+database is bootstrapped from `data/catalog_snapshot.json.gz`, which contains
+only public card, shop-listing, external-price, and FX rows. It contains no
+accounts, passwords, collections, saved lists, consent records, analytics
+events, or retailer sign-ups.
+
+This makes search reliable for Riot/private review even though Render's
+datacenter IP cannot refresh the Shopify catalogues. The UI labels these
+prices as a review snapshot, live Cards Central/Carousell requests are skipped,
+and `/api/refresh` is disabled. Run `scripts/build_catalog_snapshot.py` locally
+and deploy its output when a newer approved review snapshot is needed. This is
+a review bridge, not the production live-data architecture.
+
 Starter instance ($7/mo) + 1 GB persistent disk ($0.25/GB/mo) mounted at
 `state/`. Keep SQLite. Basic auth, single user: Trevor.
 

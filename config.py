@@ -96,6 +96,12 @@ EXTERNAL_PRICE_TTL_SECONDS = int(
     os.environ.get("RIFTVOR_EXTERNAL_PRICE_TTL_SECONDS", 21600)
 )
 
+# Hosted review builds can use the bundled public catalogue snapshot. This
+# keeps search useful on platforms whose datacenter IPs are refused by the
+# shopfronts, without ever bundling accounts, collections, or private data.
+CATALOG_MODE = os.environ.get("RIFTVOR_CATALOG_MODE", "live").strip().lower()
+SNAPSHOT_MODE = CATALOG_MODE == "snapshot"
+
 # Pacing. The defaults are the residential ones and are deliberately
 # unchanged — a datacenter IP's problem is no reason to slow down the Mac.
 # render.yaml turns the polite path on; nothing else does.

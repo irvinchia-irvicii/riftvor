@@ -19,6 +19,7 @@ import basket
 import card_art
 import cards_central
 import carousell
+import catalog_snapshot
 import collection
 import config
 import db
@@ -46,6 +47,8 @@ app.config.update(
     PERMANENT_SESSION_LIFETIME=timedelta(days=30),
 )
 db.init_db()
+if config.SNAPSHOT_MODE:
+    catalog_snapshot.bootstrap_if_empty()
 
 # ── Auth (HOSTING.md Stage 0 prep #3) ───────────────────────────────────────
 # Every route except /api/health sits behind basic auth once a password is
@@ -102,6 +105,7 @@ def index():
                     "base": config.CARDS_CENTRAL["base"],
                     "live": True}]),
         ttl=config.TTL_SECONDS,
+        catalog_mode=config.CATALOG_MODE,
     )
 
 
@@ -237,6 +241,7 @@ def _sync_state():
         notices = [dict(r) for r in conn.execute(
             "SELECT * FROM dormant_notices ORDER BY noticed_at DESC")]
     return {"ages": ages, "ttl": config.TTL_SECONDS,
+            "catalog_mode": config.CATALOG_MODE,
             "dormant_notices": notices, "syncing": sync.running()}
 
 
@@ -250,7 +255,8 @@ def _full_comparison(text: str, force: bool = False,
     # the TTL cache, attached at request time (never written to listings).
     wanted = [{"card_key": r["card_key"], "name": r["name"]}
               for r in result["rows"]]
-    cc = cards_central.lookup(wanted) if wanted else {}
+    cc = (cards_central.lookup(wanted)
+          if wanted and not config.SNAPSHOT_MODE else {})
     for row in result["rows"]:
         cell = cc.get(row["card_key"], {}).get(row["finish"])
         if cell:
@@ -260,7 +266,7 @@ def _full_comparison(text: str, force: bool = False,
                 row["best_price"] = cell["price"]
     result["store_order"] = (result["store_order"]
                              + [cards_central.STORE_KEY])
-    if with_carousell:
+    if with_carousell and not config.SNAPSHOT_MODE:
         # Fuzzy name matches, kept separate from the store rows.
         names = list({r["name"] for r in result["rows"] if r["name"]})
         result["carousell"] = carousell.panel_for(names)
@@ -308,6 +314,11 @@ def _wants_background() -> bool:
 
 @app.post("/api/refresh")
 def api_refresh():
+    if config.SNAPSHOT_MODE:
+        return jsonify({
+            **_sync_state(),
+            "error": "Live refresh is disabled on the hosted review site.",
+        }), 409
     if _wants_background():
         started = sync.start_background(force=True)
         return jsonify({

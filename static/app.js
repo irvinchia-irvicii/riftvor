@@ -27,13 +27,18 @@ function renderSync(state) {
   if (!state) return;
   const box = $("sync-chips");
   box.innerHTML = "";
+  const snapshotMode = state.catalog_mode === "snapshot";
   for (const s of STORES) {
     const chip = document.createElement("span");
     chip.className = "chip";
     if (s.live) {
-      chip.classList.add("fresh");
-      chip.textContent = `${s.name} · live`;
-      chip.title = "Queried live per search — no cache";
+      chip.classList.add(snapshotMode ? "stale" : "fresh");
+      chip.textContent = snapshotMode
+        ? `${s.name} · not in snapshot`
+        : `${s.name} · live`;
+      chip.title = snapshotMode
+        ? "Live requests are disabled on the hosted review site"
+        : "Queried live per search — no cache";
       box.appendChild(chip);
       continue;
     }
@@ -47,9 +52,14 @@ function renderSync(state) {
       chip.title = meta.message || "";
     } else {
       const mins = Math.round(meta.age_s / 60);
-      chip.classList.add(meta.age_s <= TTL_SECONDS ? "fresh" : "stale");
-      chip.textContent = `${s.name} · ${mins < 1 ? "now" : mins + "m"}`;
-      chip.title = `${meta.listing_count} listings`;
+      chip.classList.add(
+        snapshotMode || meta.age_s <= TTL_SECONDS ? "fresh" : "stale");
+      chip.textContent = snapshotMode
+        ? `${s.name} · review snapshot`
+        : `${s.name} · ${mins < 1 ? "now" : mins + "m"}`;
+      chip.title = snapshotMode
+        ? `${meta.listing_count} listings in the hosted review snapshot`
+        : `${meta.listing_count} listings`;
     }
     box.appendChild(chip);
   }
@@ -396,9 +406,12 @@ async function doSearch(force = false) {
     renderResult(result);
     const secs = ((performance.now() - t0) / 1000).toFixed(1);
     const synced = (result.sync.summary.synced || []).length;
-    $("status-line").textContent =
-      `${result.rows.length} rows in ${secs}s ` +
-      (synced ? `(synced ${synced} store${synced > 1 ? "s" : ""})` : "(all within TTL)");
+    const source = result.sync.catalog_mode === "snapshot"
+      ? "(hosted review snapshot)"
+      : (synced
+        ? `(synced ${synced} store${synced > 1 ? "s" : ""})`
+        : "(all within TTL)");
+    $("status-line").textContent = `${result.rows.length} rows in ${secs}s ${source}`;
   } catch (err) {
     if (err.code === "account_required" && window.ShopDiffAuth) {
       $("status-line").textContent = "Sign in to search more than one card.";

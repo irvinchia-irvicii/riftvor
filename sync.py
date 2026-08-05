@@ -20,8 +20,8 @@ import time
 import httpx
 
 import db
-from config import (RIFTMANA_ART_URL, SEQUENTIAL_SYNC, STORE_DELAY_S, STORES,
-                    TTL_SECONDS)
+from config import (RIFTMANA_ART_URL, SEQUENTIAL_SYNC, SNAPSHOT_MODE,
+                    STORE_DELAY_S, STORES, TTL_SECONDS)
 from filters import is_dropped
 from parsers import parse_product
 from stores import CatalogResult, ShopifyCatalogStore, make_client
@@ -151,6 +151,8 @@ async def _sync_stores(cfgs: list[dict]) -> list[dict]:
 
 
 def stale_stores(force: bool = False) -> list[dict]:
+    if SNAPSHOT_MODE:
+        return []
     if force:
         return list(STORES)
     with db.connect() as conn:
@@ -195,6 +197,8 @@ def start_background(force: bool = False) -> bool:
 def ensure_fresh(force: bool = False) -> dict:
     """Sync whatever is stale (or everything, if force). Blocking; safe to
     call from a Flask request. Returns a per-store summary."""
+    if SNAPSHOT_MODE:
+        return {"synced": [], "fresh": True, "mode": "snapshot"}
     with _SYNC_LOCK:
         cfgs = stale_stores(force)   # re-check inside the lock: the search
         if not cfgs:                 # that queued behind a sync is now fresh

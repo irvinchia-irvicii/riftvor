@@ -21,7 +21,12 @@
   <a class="ghost btn-link" href="/collection" data-member-link>Collection</a>
   <a class="ghost btn-link portfolio-link" href="/portfolio" data-portfolio-link>Portfolio</a>
   <button class="account-btn" data-account-button>Sign in</button>
+  {% if catalog_mode == "snapshot" %}
+  <button id="refresh-btn" class="ghost" disabled
+    title="Live shop refresh is disabled on this private review site">Review snapshot</button>
+  {% else %}
   <button id="refresh-btn" class="ghost" title="Force refresh (bypass TTL)">⟳ Refresh</button>
+  {% endif %}
 </header>
 
 <div id="dormant-banner" class="banner hidden"></div>
