@@ -26,6 +26,8 @@
 
   function render() {
     document.body.classList.toggle("has-account", state.authenticated);
+    const buylist = $("buylist");
+    if (buylist) buylist.rows = state.authenticated ? 14 : 3;
     const hasPortfolio = Boolean(state.account?.entitlements?.portfolio_analytics);
     document.body.classList.toggle("has-portfolio", hasPortfolio);
     for (const btn of document.querySelectorAll("[data-account-button]")) {

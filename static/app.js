@@ -92,7 +92,8 @@ function renderResult(result) {
     const qty = row.qty > 1 ? `${row.qty}x ` : "";
     tr.innerHTML = `
       <td class="card-cell">
-        <img src="/api/card_img/${row.card_key}" loading="lazy"
+        <img src="/api/card_img/${row.card_key}" loading="lazy" data-card-art
+             data-card-key="${row.card_key}" data-card-name="${row.name || row.card_key}"
              onerror="this.style.visibility='hidden'">
         <div>
           <div class="cname" data-key="${row.card_key}" data-finish="${row.finish}"
@@ -375,8 +376,7 @@ function openPlan(plan, names) {
     const sub = document.createElement("span");
     sub.className = "plan-store-sub";
     sub.textContent = fmt(store.subtotal);
-    tools.appendChild(sub);
-
+    head.appendChild(sub);
     head.appendChild(tools);
     sec.appendChild(head);
 
@@ -547,6 +547,42 @@ function currentLine() {
 }
 
 let acTimer = null;
+function caretPosition() {
+  const style = getComputedStyle(ta);
+  const mirror = document.createElement("div");
+  const copied = [
+    "boxSizing", "width", "paddingTop", "paddingRight", "paddingBottom",
+    "paddingLeft", "borderTopWidth", "borderRightWidth", "borderBottomWidth",
+    "borderLeftWidth", "fontFamily", "fontSize", "fontWeight", "fontStyle",
+    "letterSpacing", "lineHeight", "textTransform", "wordSpacing", "tabSize",
+  ];
+  mirror.style.position = "absolute";
+  mirror.style.visibility = "hidden";
+  mirror.style.whiteSpace = "pre-wrap";
+  mirror.style.overflowWrap = "break-word";
+  for (const property of copied) mirror.style[property] = style[property];
+  mirror.textContent = ta.value.slice(0, ta.selectionStart);
+  const marker = document.createElement("span");
+  marker.textContent = ta.value.slice(ta.selectionStart) || ".";
+  mirror.appendChild(marker);
+  document.body.appendChild(mirror);
+  const point = { left: marker.offsetLeft, top: marker.offsetTop };
+  mirror.remove();
+  return point;
+}
+
+function positionAutocomplete() {
+  const point = caretPosition();
+  const lineHeight = parseFloat(getComputedStyle(ta).lineHeight) || 20;
+  const minimumWidth = Math.min(230, ta.clientWidth);
+  const left = Math.min(
+    Math.max(0, point.left - ta.scrollLeft),
+    Math.max(0, ta.clientWidth - minimumWidth));
+  acBox.style.left = `${left}px`;
+  acBox.style.top = `${Math.max(4, point.top - ta.scrollTop + lineHeight + 5)}px`;
+  acBox.style.width = `${Math.min(390, ta.clientWidth - left)}px`;
+}
+
 ta.addEventListener("input", () => {
   clearTimeout(acTimer);
   acTimer = setTimeout(async () => {
@@ -563,6 +599,7 @@ ta.addEventListener("input", () => {
       div.onclick = () => pickAc(h);
       acBox.appendChild(div);
     }
+    positionAutocomplete();
     acBox.classList.remove("hidden");
   }, 180);
 });
@@ -688,6 +725,8 @@ async function openHistory(cardKey, finish, name) {
   $("modal-title").textContent = name;
   $("modal-sub").textContent = `${cardKey} · ${finish || "all finishes"} · 90 days`;
   $("modal-art").src = `/api/card_img/${cardKey}`;
+  $("modal-art").dataset.cardKey = cardKey;
+  $("modal-art").dataset.cardName = name;
   $("modal").classList.remove("hidden");
   const palette = ["#7b5cff", "#4dd0e1", "#7dd87d", "#ffb454", "#ff6b6b", "#c792ea"];
   const datasets = Object.entries(data.series).map(([key, points], i) => {

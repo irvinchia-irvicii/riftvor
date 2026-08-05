@@ -48,7 +48,8 @@ async function load() {
       .toLocaleDateString("en-SG", { day: "numeric", month: "short", year: "2-digit" });
     tr.innerHTML = `
       <td class="card-cell">
-        <img src="/api/card_img/${it.card_key}" loading="lazy"
+        <img src="/api/card_img/${it.card_key}" loading="lazy" data-card-art
+             data-card-key="${it.card_key}" data-card-name="${it.name}"
              onerror="this.style.visibility='hidden'">
         <div>
           <div class="cname">${it.name}${foil}</div>

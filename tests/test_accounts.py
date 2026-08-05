@@ -154,6 +154,15 @@ def test_pulse_is_public_and_collection_links_to_it(client):
     assert b'href="/pulse"' in collection_page.data
 
 
+def test_search_starts_compact_and_includes_full_card_viewer(client):
+    page = client.get("/")
+    assert page.status_code == 200
+    assert b'id="buylist" rows="3"' in page.data
+    assert b'class="hint guest-only"' in page.data
+    assert b'id="art-modal"' in page.data
+    assert b'card_viewer.js' in page.data
+
+
 def test_founder_collection_header_links_directly_to_portfolio(client):
     signup(client)
     with db.connect() as conn:

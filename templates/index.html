@@ -36,10 +36,11 @@
   <aside class="panel">
     <span class="section-code">WISH_LIST</span>
     <h2>Make a wish list</h2>
-    <p class="hint">One card per line — names or collector numbers
+    <p class="hint guest-only">One card per line — names or collector numbers
       (<code>OGN-043</code>, <code>2x Yasuo</code>, <code>UNL-T01</code>)</p>
+    <p class="hint member-only">Paste a deck list or enter one card per line.</p>
     <div class="ta-wrap">
-      <textarea id="buylist" rows="14" spellcheck="false"
+      <textarea id="buylist" rows="3" spellcheck="false"
         placeholder="OGN-043&#10;2x Yasuo - Unforgiven&#10;Dazzling Aurora"></textarea>
       <div id="ac-box" class="ac hidden"></div>
     </div>
@@ -97,7 +98,7 @@
 <div id="modal" class="modal hidden">
   <div class="modal-card">
     <div class="modal-head">
-      <img id="modal-art" alt="" loading="lazy">
+      <img id="modal-art" alt="" loading="lazy" data-card-art>
       <div>
         <h2 id="modal-title"></h2>
         <span id="modal-sub" class="sub"></span>
@@ -109,12 +110,15 @@
 </div>
 
 <div id="plan-modal" class="modal hidden">
-  <div class="modal-card">
-    <div class="modal-head">
-      <div>
+  <div class="modal-card plan-modal-card">
+    <div class="plan-modal-head">
+      <div class="plan-title">
         <h2 id="plan-modal-title"></h2>
         <span id="plan-modal-sub" class="sub"></span>
       </div>
+      <button id="plan-modal-close" class="ghost" aria-label="Close purchase plan">✕</button>
+    </div>
+    <div class="plan-modal-controls">
       <button id="plan-add-all" class="ghost">+ Add all to collection</button>
       <label class="plan-folder-label member-only">Folder
         <select id="plan-folder-select">
@@ -130,7 +134,6 @@
         </div>
         <span id="plan-folder-status" class="plan-folder-status"></span>
       </div>
-      <button id="plan-modal-close" class="ghost">✕</button>
     </div>
     <div id="plan-modal-body" class="plan-body"></div>
   </div>
@@ -141,8 +144,10 @@
   const TTL_SECONDS = {{ ttl }};
 </script>
 {% include "_auth.html" %}
+{% include "_art_modal.html" %}
 {% include "_legal_footer.html" %}
 <script src="{{ url_for('static', filename='auth.js') }}"></script>
+<script src="{{ url_for('static', filename='card_viewer.js') }}"></script>
 <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 </html>
