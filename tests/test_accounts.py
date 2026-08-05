@@ -142,6 +142,26 @@ def test_internal_review_account_is_provisioned_without_fake_consent(
         assert consent_rows == 0
 
 
+def test_pulse_is_public_and_collection_links_to_it(client):
+    pulse = client.get("/pulse")
+    assert pulse.status_code == 200
+    assert b"Riftbound Pulse" in pulse.data
+    assert b"Awaiting approved sources" in pulse.data
+
+    signup(client)
+    collection_page = client.get("/collection")
+    assert collection_page.status_code == 200
+    assert b'href="/pulse"' in collection_page.data
+
+
+def test_founder_collection_header_links_directly_to_portfolio(client):
+    signup(client)
+    with db.connect() as conn:
+        conn.execute("UPDATE users SET tier = 'founder'")
+    collection_page = client.get("/collection")
+    assert b'href="/portfolio"' in collection_page.data
+
+
 def test_signup_requires_terms_and_keeps_analytics_optional(client):
     refused = client.post("/api/auth/signup", json={
         "email": "private@example.com", "password": "eightchars",

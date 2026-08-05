@@ -431,6 +431,12 @@ def collection_page():
     return render_template("collection.html", account=accounts.current())
 
 
+@app.get("/pulse")
+def pulse_page():
+    """Public, policy-safe Riftbound news and organized-play landing page."""
+    return render_template("pulse.html", account=accounts.current())
+
+
 @app.get("/portfolio")
 def portfolio_page():
     account = accounts.current()

@@ -17,7 +17,11 @@
     </div>
   </div>
   <button class="account-btn" data-account-button>Account</button>
-  <a class="ghost btn-link" href="/" style="margin-left:auto;">← Search</a>
+  {% if account.entitlements.portfolio_analytics %}
+  <a class="ghost btn-link" href="/portfolio" style="margin-left:auto;">Portfolio</a>
+  {% endif %}
+  <a class="ghost btn-link" href="/pulse">Riftbound Pulse</a>
+  <a class="ghost btn-link" href="/">← Search</a>
 </header>
 
 <main class="single">

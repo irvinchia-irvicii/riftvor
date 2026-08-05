@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Soraka's Wish — Riftbound Pulse</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header>
+  <div class="brand">
+    <img class="brand-mascot" src="{{ url_for('static', filename='wish-sprite.png') }}" alt="">
+    <div class="brand-copy">
+      <span class="eyebrow">News from across the Rift</span>
+      <h1>SORAKA'S <span>WISH</span></h1>
+      <span class="sub">Riftbound Pulse · events and official news</span>
+    </div>
+  </div>
+  <button class="account-btn" data-account-button>{% if account %}Account{% else %}Sign in{% endif %}</button>
+  {% if account %}
+  <a class="ghost btn-link" href="/collection" style="margin-left:auto;">Collection</a>
+  {% if account.entitlements.portfolio_analytics %}<a class="ghost btn-link" href="/portfolio">Portfolio</a>{% endif %}
+  {% else %}
+  <span class="header-spacer"></span>
+  {% endif %}
+  <a class="ghost btn-link" href="/">Search</a>
+</header>
+
+<main class="single pulse-page">
+  <section>
+    <div class="results-intro compact pulse-hero">
+      <span class="eyebrow">Riftbound Pulse</span>
+      <h2>A little starlight on what’s happening.</h2>
+      <p>Official announcements and places to find organized play, gathered into one calm corner of your wishbook.</p>
+      <div class="pulse-actions">
+        <a class="primary btn-link" href="https://playriftbound.com/en-us/news/" target="_blank" rel="noopener">Official news ↗</a>
+        <a class="ghost btn-link" href="https://locator.riftbound.uvsgames.com/events?lang=en" target="_blank" rel="noopener">Find an event ↗</a>
+      </div>
+    </div>
+
+    <section class="pulse-layout">
+      <article class="panel-static pulse-feature">
+        <span class="section-code">LATEST_OFFICIAL_NEWS</span>
+        <h2>Fresh from Riftbound</h2>
+        <div class="news-list">
+          <a href="https://playriftbound.com/en-us/news/" target="_blank" rel="noopener">
+            <time datetime="2026-08-05">5 Aug 2026</time>
+            <strong>August 2026 State of Play</strong>
+            <span>Organized Play updates and a look toward 2027.</span>
+          </a>
+          <a href="https://playriftbound.com/en-us/news/" target="_blank" rel="noopener">
+            <time datetime="2026-08-05">5 Aug 2026</time>
+            <strong>2026 Regional Championship Info</strong>
+            <span>Details for three Regional Championships arriving this year.</span>
+          </a>
+          <a href="https://playriftbound.com/en-us/news/" target="_blank" rel="noopener">
+            <time datetime="2026-08-04">4 Aug 2026</time>
+            <strong>Products and Sets into 2027</strong>
+            <span>A first look at the upcoming set and product line-up.</span>
+          </a>
+          <a href="https://playriftbound.com/en-us/news/" target="_blank" rel="noopener">
+            <time datetime="2026-07-17">17 Jul 2026</time>
+            <strong>July Ban List Updates</strong>
+            <span>Official changes for Standard and Constructed 2v2.</span>
+          </a>
+        </div>
+        <p class="pulse-asof">Checked against the official Riftbound news page on 5 August 2026.</p>
+      </article>
+
+      <aside class="pulse-side">
+        <article class="panel-static pulse-card">
+          <span class="section-code">TOURNAMENT_WATCH</span>
+          <h2>Find your next table</h2>
+          <p>Browse the official event finder for nearby organized play. Singapore filters can be added once the official feed supports a stable connection.</p>
+          <a class="text-link" href="https://locator.riftbound.uvsgames.com/events?lang=en" target="_blank" rel="noopener">Open official event finder →</a>
+        </article>
+        <article class="panel-static pulse-card pulse-card-soft">
+          <span class="section-code">DECK_SPOTLIGHTS</span>
+          <h2>Published decklists, soon</h2>
+          <p>We’re preparing an attributed gallery of decks from published tournament results—not a “best deck” ranking.</p>
+          <span class="approval-pill">Awaiting approved sources</span>
+        </article>
+      </aside>
+    </section>
+
+    <section class="panel-static pulse-method">
+      <div>
+        <span class="section-code">A_CLEAR_VIEW</span>
+        <h2>What this page will—and won’t—measure</h2>
+      </div>
+      <div class="pulse-method-grid">
+        <div><b>We can show</b><span>Official news, upcoming events, and clearly sourced published decklists or finishes.</span></div>
+        <div><b>We won’t infer</b><span>Deck play rates, win rates, matchup percentages, or a complete competitive metagame.</span></div>
+        <div><b>Every result needs</b><span>An event, date, placement, player attribution where public, and a link to its source.</span></div>
+      </div>
+      <p class="method-note">This approach follows Riot’s current Riftbound developer policy. Third-party tournament sources will only be connected after their terms or permission allow it.</p>
+    </section>
+  </section>
+</main>
+
+{% include "_auth.html" %}
+{% include "_legal_footer.html" %}
+<script src="{{ url_for('static', filename='auth.js') }}"></script>
+</body>
+</html>
