@@ -8,6 +8,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import app as app_module  # noqa: E402
+import accounts  # noqa: E402
 import config  # noqa: E402
 import db  # noqa: E402
 
@@ -86,6 +87,37 @@ def test_username_account_can_sign_in_for_multicard_search(client, monkeypatch):
         "list_text": "OGN-043\nUNL-053",
     })
     assert searched.status_code == 200
+
+
+def test_internal_review_account_is_provisioned_without_fake_consent(
+        client, monkeypatch):
+    from werkzeug.security import generate_password_hash
+
+    monkeypatch.setattr(config, "REVIEW_ACCOUNT_USERNAME", "riotgames")
+    monkeypatch.setattr(
+        config, "REVIEW_ACCOUNT_PASSWORD_HASH",
+        generate_password_hash("sorakareview"),
+    )
+    assert accounts.ensure_review_account() is True
+    assert accounts.ensure_review_account() is False
+
+    signed_in = client.post("/api/auth/login", json={
+        "email": "riotgames", "password": "sorakareview",
+    })
+    assert signed_in.status_code == 200
+    assert signed_in.json["account"]["entitlements"]["multi_card_search"] is True
+    with db.connect() as conn:
+        reviewer = conn.execute(
+            """SELECT terms_version, analytics_consent FROM users
+               WHERE email = 'riotgames'"""
+        ).fetchone()
+        assert reviewer["terms_version"] is None
+        assert reviewer["analytics_consent"] == 0
+        consent_rows = conn.execute(
+            """SELECT COUNT(*) FROM privacy_consents p JOIN users u
+               ON p.user_id = u.id WHERE u.email = 'riotgames'"""
+        ).fetchone()[0]
+        assert consent_rows == 0
 
 
 def test_signup_requires_terms_and_keeps_analytics_optional(client):

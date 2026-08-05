@@ -33,6 +33,38 @@ def _valid_identifier(value: str) -> bool:
     return bool(EMAIL_RE.match(value) or USERNAME_RE.match(value))
 
 
+def ensure_review_account() -> bool:
+    """Provision the private hosted reviewer after an ephemeral DB reset.
+
+    This is an internal access account, not a claim that its username is an
+    official public Riot identity. No analytics consent or terms acceptance is
+    recorded on the reviewer's behalf.
+    """
+    username = config.REVIEW_ACCOUNT_USERNAME
+    password_hash = config.REVIEW_ACCOUNT_PASSWORD_HASH
+    if not username or not password_hash:
+        return False
+    if not USERNAME_RE.match(username):
+        raise RuntimeError("Invalid configured review-account username")
+    with db.connect() as conn:
+        existing = conn.execute(
+            "SELECT id FROM users WHERE email = ?", (username,)
+        ).fetchone()
+        if existing:
+            conn.execute(
+                "UPDATE users SET password_hash = ? WHERE id = ?",
+                (password_hash, existing["id"]),
+            )
+            return False
+        conn.execute(
+            """INSERT INTO users
+               (email, password_hash, tier, created_at, analytics_consent)
+               VALUES (?, ?, 'member', ?, 0)""",
+            (username, password_hash, time.time()),
+        )
+    return True
+
+
 def public_account(row) -> dict:
     return {
         "id": row["id"],

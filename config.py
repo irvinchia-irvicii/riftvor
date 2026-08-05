@@ -58,6 +58,15 @@ BASE_URL = os.environ.get("RIFTVOR_BASE_URL", f"http://127.0.0.1:{PORT}/")
 AUTH_USER = os.environ.get("RIFTVOR_AUTH_USER", "riftvor")
 AUTH_PASSWORD = os.environ.get("RIFTVOR_AUTH_PASSWORD", "")
 
+# Optional internal reviewer account. Store only a one-way password hash in
+# deployment configuration; never commit or log the plaintext password.
+REVIEW_ACCOUNT_USERNAME = os.environ.get(
+    "RIFTVOR_REVIEW_ACCOUNT_USERNAME", ""
+).strip().lower()
+REVIEW_ACCOUNT_PASSWORD_HASH = os.environ.get(
+    "RIFTVOR_REVIEW_ACCOUNT_PASSWORD_HASH", ""
+).strip()
+
 # Flask account sessions. Hosted deployments should set RIFTVOR_SECRET_KEY
 # explicitly so sessions survive deploys. Local development gets a stable,
 # randomly-generated key stored under state/ (which is already gitignored).

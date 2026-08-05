@@ -49,6 +49,9 @@ app.config.update(
 db.init_db()
 if config.SNAPSHOT_MODE:
     catalog_snapshot.bootstrap_if_empty()
+if accounts.ensure_review_account():
+    log.info("provisioned internal reviewer account %r",
+             config.REVIEW_ACCOUNT_USERNAME)
 
 # ── Auth (HOSTING.md Stage 0 prep #3) ───────────────────────────────────────
 # Every route except /api/health sits behind basic auth once a password is
