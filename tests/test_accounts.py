@@ -48,8 +48,27 @@ def test_signup_session_and_logout(client):
 
 def test_riot_verification_file_stays_public_behind_review_password(
         client, monkeypatch):
+    monkeypatch.setattr(config, "AUTH_USER", "reviewer")
     monkeypatch.setattr(config, "AUTH_PASSWORD", "review-secret")
-    assert client.get("/").status_code == 401
+    gated = client.get("/")
+    assert gated.status_code == 302
+    assert "/review-login" in gated.headers["Location"]
+    assert client.get("/api/state").status_code == 401
+    assert client.get("/static/style.css").status_code == 200
+
+    refused = client.post("/review-login", data={
+        "username": "reviewer", "password": "wrong", "next": "/",
+    })
+    assert refused.status_code == 401
+    assert "not correct" in refused.get_data(as_text=True)
+
+    admitted = client.post("/review-login", data={
+        "username": "reviewer", "password": "review-secret", "next": "/",
+    })
+    assert admitted.status_code == 302
+    assert admitted.headers["Location"].endswith("/")
+    assert client.get("/").status_code == 200
+
     response = client.get("/riot.txt")
     assert response.status_code == 200
     assert response.mimetype == "text/plain"

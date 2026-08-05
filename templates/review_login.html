@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Private Review — Soraka's Wish</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="review-login-page">
+  <main class="review-login-shell">
+    <section class="review-login-card" aria-labelledby="review-title">
+      <img class="review-login-mascot"
+        src="{{ url_for('static', filename='wish-sprite.png') }}" alt="">
+      <span class="eyebrow">Private review garden</span>
+      <h1 id="review-title">SORAKA'S <span>WISH</span></h1>
+      <p>This preview is resting behind a small gate while Riot reviews the
+        project. Enter the review access details to continue.</p>
+
+      {% if error %}
+      <div class="review-login-error" role="alert">{{ error }}</div>
+      {% endif %}
+
+      <form method="post" action="{{ url_for('review_login') }}"
+        class="review-login-form">
+        <input type="hidden" name="next" value="{{ next_url }}">
+        <label for="review-username">Review username</label>
+        <input id="review-username" name="username" autocomplete="username"
+          value="{{ review_username }}" required autofocus>
+        <label for="review-password">Review password</label>
+        <input id="review-password" name="password" type="password"
+          autocomplete="current-password" required>
+        <button class="primary" type="submit">Enter the garden</button>
+      </form>
+
+      <small>This is the website review password—not your personal collection
+        account. You can sign into your collection after entering.</small>
+    </section>
+  </main>
+</body>
+</html>

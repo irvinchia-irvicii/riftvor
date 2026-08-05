@@ -33,6 +33,10 @@ services:
         value: trevor
       - key: RIFTVOR_AUTH_PASSWORD
         generateValue: true   # read it from the Render dashboard after deploy
+      - key: RIFTVOR_SECRET_KEY
+        generateValue: true   # keeps review/account sessions stable
+      - key: RIFTVOR_SESSION_COOKIE_SECURE
+        value: "1"
       - key: RIFTVOR_BASE_URL
         sync: false           # set to the service URL once Render assigns it
       - key: RIFTVOR_CATALOG_MODE
