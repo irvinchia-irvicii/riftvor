@@ -125,11 +125,14 @@ def test_internal_review_account_is_provisioned_without_fake_consent(
     })
     assert signed_in.status_code == 200
     assert signed_in.json["account"]["entitlements"]["multi_card_search"] is True
+    assert signed_in.json["account"]["entitlements"]["portfolio_analytics"] is True
+    assert client.get("/portfolio").status_code == 200
     with db.connect() as conn:
         reviewer = conn.execute(
-            """SELECT terms_version, analytics_consent FROM users
+            """SELECT tier, terms_version, analytics_consent FROM users
                WHERE email = 'riotgames'"""
         ).fetchone()
+        assert reviewer["tier"] == "founder"
         assert reviewer["terms_version"] is None
         assert reviewer["analytics_consent"] == 0
         consent_rows = conn.execute(

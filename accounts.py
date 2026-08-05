@@ -52,14 +52,15 @@ def ensure_review_account() -> bool:
         ).fetchone()
         if existing:
             conn.execute(
-                "UPDATE users SET password_hash = ? WHERE id = ?",
+                """UPDATE users SET password_hash = ?, tier = 'founder'
+                   WHERE id = ?""",
                 (password_hash, existing["id"]),
             )
             return False
         conn.execute(
             """INSERT INTO users
                (email, password_hash, tier, created_at, analytics_consent)
-               VALUES (?, ?, 'member', ?, 0)""",
+               VALUES (?, ?, 'founder', ?, 0)""",
             (username, password_hash, time.time()),
         )
     return True
